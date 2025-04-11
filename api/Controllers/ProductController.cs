@@ -48,23 +48,25 @@ public class ProductController : ControllerBase
     }
 
     // Fetch products by category name
-[HttpGet("byCategoryName/{categoryName}")]
-public IActionResult GetByCategoryName([FromRoute] string categoryName)
+[HttpGet("byCategory")]
+public IActionResult GetProductsByCategory([FromQuery] string name)
 {
-    // Fetch products that belong to the category with the given category name
-    var products = _context.Products
-                           .Where(p => p.ProductCategories.CategoryName.ToLower() == categoryName.ToLower()) // Match category name (case-insensitive)
-                           .ToList();
-
-    if (products == null || !products.Any())
+    if (string.IsNullOrWhiteSpace(name))
     {
-        return NotFound($"No products found for the category '{categoryName}'.");
+        return BadRequest("Category name is required.");
+    }
+    //scalable because a select statement to dto is used which avoids loading full entity trees and only retrieves matching products.
+    var products = _context.Products
+        .Where(p => p.ProductCategories.CategoryName.ToLower() == name.ToLower())
+        .Select(p => p.ToProductDto())
+        .ToList();
+
+    if (!products.Any())
+    {
+        return NotFound($"No products found under category '{name}'.");
     }
 
-    // Map the product list to ProductDto and return the result
-    var productDtos = products.Select(product => product.ToProductDto()).ToList();
-    
-    return Ok(productDtos);
+    return Ok(products);
 }
 
 
