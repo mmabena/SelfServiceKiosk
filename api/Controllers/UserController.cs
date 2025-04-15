@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
-using api.Data;  //ApplicationDBContext is here
-using api.Models; //User and UserDto are here
-using api.Dtos; //UserRegistrationDto, UserLoginDto are here
+using api.Data;  
+using api.Models; 
+using api.Dtos; 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using BCrypt.Net; 
 using System.Text.RegularExpressions;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
 
 namespace api.Controllers
 {
@@ -15,19 +20,20 @@ namespace api.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDBContext _context;
-       
-        // Constructor to inject ApplicationDBContext
-        public UserController(ApplicationDBContext context)
-        {
-            _context = context;
-           
-        }
+      private readonly IConfiguration _configuration;
+
+public UserController(ApplicationDBContext context, IConfiguration configuration)
+{
+    _context = context;
+    _configuration = configuration;
+}
 
         // GET: api/user
         [HttpGet]
         public IActionResult GetAll()
         {
             var users = _context.Users
+                                .Include(u => u.UserRole) // Include UserRole data
                                 .ToList()
                                 .Select(user => user.ToUserDto()) // Mapping each User to UserDto
                                 .ToList();
@@ -39,7 +45,9 @@ namespace api.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById([FromRoute] int id)
         {
-            var user = _context.Users.Find(id);
+            var user = _context.Users
+                        .Include(u => u.UserRole) // Include UserRole data
+                        .FirstOrDefault(u => u.UserId == id);
 
             if (user == null)
             {
@@ -49,51 +57,60 @@ namespace api.Controllers
             return Ok(user.ToUserDto()); // Map the found user to UserDto and return
         }
 
-       // POST: api/user/register
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
-        {
-            // Validate input
-            if (string.IsNullOrEmpty(registrationDto.Username) || string.IsNullOrEmpty(registrationDto.Password))
-            {//change this to ensure no fields are left empty
-                return BadRequest("Username and password are required.");
-            }
+        // POST: api/user/register
+       [HttpPost("register")]
+public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
+{
+    if (string.IsNullOrWhiteSpace(registrationDto.Username) ||
+        string.IsNullOrWhiteSpace(registrationDto.Password) ||
+        string.IsNullOrWhiteSpace(registrationDto.Email) ||
+        string.IsNullOrWhiteSpace(registrationDto.FirstName) ||
+        string.IsNullOrWhiteSpace(registrationDto.LastName))
+    {
+        return BadRequest("All fields are required and cannot be empty.");
+    }
 
-            // Password validation
-            if (!IsValidPassword(registrationDto.Password))
-            {
-                return BadRequest("Password does not meet the required criteria. It should have at least 8 characters, including uppercase, lowercase, numbers, and special characters.");
-            }
+    if (!IsValidEmail(registrationDto.Email))
+    {
+        return BadRequest("Email must be a valid @singular.co.za address.");
+    }
 
-            // Check if username is already taken
-            var existingUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == registrationDto.Username);
+    if (!IsValidPassword(registrationDto.Password))
+    {
+        return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
+    }
 
-            if (existingUser != null)
-            {
-                return BadRequest("Username is already taken.");
-            }
+    var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == registrationDto.Username);
+    if (existingUser != null)
+    {
+        return BadRequest("Username is already taken.");
+    }
 
-            // Create a new user
-            var user = new User
-            {
-                Username = registrationDto.Username,
-                FirstName = registrationDto.FirstName,
-                LastName = registrationDto.LastName,
-                Email = registrationDto.Email,
-                Role = string.IsNullOrEmpty(registrationDto.Role) ? "user" : registrationDto.Role // Default to 'user' role
-            };
+    string roleName = string.IsNullOrEmpty(registrationDto.Role) ? "User" : registrationDto.Role;
+    var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == roleName);
 
-            // Hash the password using bcrypt
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password);
+    if (userRole == null)
+    {
+        userRole = new UserRole { RoleName = roleName };
+        _context.UserRoles.Add(userRole);
+        await _context.SaveChangesAsync();
+    }
 
-            // Save the new user to the database
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+    var user = new User
+    {
+        Username = registrationDto.Username,
+        FirstName = registrationDto.FirstName,
+        LastName = registrationDto.LastName,
+        Email = registrationDto.Email,
+        UserRoleId = userRole.UserRoleId,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password)
+    };
 
-            // Return the created user (minus the password)
-            return CreatedAtAction("GetById", new { id = user.UserId }, user.ToUserDto());
-        }
+    _context.Users.Add(user);
+    await _context.SaveChangesAsync();
+
+    return CreatedAtAction("GetById", new { id = user.UserId }, user.ToUserDto());
+}
 
         // Password validation logic
         private bool IsValidPassword(string password)
@@ -103,41 +120,66 @@ namespace api.Controllers
             var hasLowerCase = new Regex(@"[a-z]");
             var hasDigit = new Regex(@"[0-9]");
             var hasSpecialChar = new Regex(@"[\W_]");
-            var hasMinLength = password.Length >= 8;
+            var hasMinLength = password.Length == 8;
 
             return hasUpperCase.IsMatch(password) && hasLowerCase.IsMatch(password) && 
                    hasDigit.IsMatch(password) && hasSpecialChar.IsMatch(password) && hasMinLength;
         }
+private bool IsValidEmail(string email)
+{
+    // Must end with @singular.co.za
+    return Regex.IsMatch(email, @"^[^@\s]+@singular\.co\.za$", RegexOptions.IgnoreCase);
+}
+
+
 
         // POST: api/user/login
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
-        {
-            // Validate input
-            if (string.IsNullOrEmpty(loginDto.Username) || string.IsNullOrEmpty(loginDto.Password))
-            {
-                return BadRequest("Username and password are required.");
-            }
+       [HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
+{
+    if (string.IsNullOrEmpty(loginDto.Username) || string.IsNullOrEmpty(loginDto.Password))
+    {
+        return BadRequest("Username and password are required.");
+    }
 
-            // Find the user by username
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
+    var user = await _context.Users
+        .Include(u => u.UserRole)
+        .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
 
-            if (user == null)
-            {
-                return Unauthorized("Invalid username or password.");
-            }
+    if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
+    {
+        return Unauthorized("Invalid username or password.");
+    }
 
-            // Check if the entered password matches the stored hash
-            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
+    // Prepare token claims
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+        new Claim(ClaimTypes.Name, user.Username),
+        new Claim(ClaimTypes.Role, user.UserRoleId.ToString()), // Role as ID for policies
+        new Claim("roleName", user.UserRole?.RoleName ?? "User") // Optional: role name
+    };
 
-            if (!isPasswordValid)
-            {
-                return Unauthorized("Invalid username or password.");
-            }
+    // Get secret key from appsettings.json
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            return Ok("Login successful.");
-        }
+    var token = new JwtSecurityToken(
+        issuer: _configuration["Jwt:Issuer"],
+        audience: _configuration["Jwt:Audience"],
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(2),
+        signingCredentials: creds);
+
+    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Ok(new
+    {
+        message = "Login successful",
+        token = tokenString,
+        user = user.ToUserDto()
+    });
+}
 
         // ROLE-BASED AUTHORIZATION
         [Authorize(Roles = "SuperUser")]
@@ -153,72 +195,98 @@ namespace api.Controllers
         {
             return Ok("This is user data.");
         }
- // POST: api/user/update
+
+        // PUT: api/user/{id}
 [HttpPut("{id}")]
 public async Task<IActionResult> UpdateUserData([FromRoute] int id, [FromBody] UserUpdateDto updateDto)
 {
-    // Find the user by ID
-    var user = await _context.Users.FindAsync(id);
-
-    // Check if the user exists
+    var user = await _context.Users.Include(u => u.UserRole).FirstOrDefaultAsync(u => u.UserId == id);
     if (user == null)
     {
         return NotFound("User not found.");
     }
 
-    // Validate the input data (this can be expanded as needed)
-    if (string.IsNullOrEmpty(updateDto.Username) || string.IsNullOrEmpty(updateDto.Email)||string.IsNullOrEmpty(updateDto.FirstName)||string.IsNullOrEmpty(updateDto.LastName))
+    // Required fields validation
+    if (string.IsNullOrWhiteSpace(updateDto.Username) ||
+        string.IsNullOrWhiteSpace(updateDto.Email) ||
+        string.IsNullOrWhiteSpace(updateDto.FirstName) ||
+        string.IsNullOrWhiteSpace(updateDto.LastName))
     {
-        return BadRequest("Fields cannot be left empty.");
+        return BadRequest("All fields are required and cannot be empty.");
     }
 
-    // Update user fields with the new data
+    // Email must be @singular.co.za
+    if (!IsValidEmail(updateDto.Email))
+    {
+        return BadRequest("Email must be a valid @singular.co.za address.");
+    }
+
+    // Handle role change if needed
+    if (!string.IsNullOrEmpty(updateDto.Role) && 
+        (user.UserRole == null || user.UserRole.RoleName != updateDto.Role))
+    {
+        var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == updateDto.Role);
+        if (userRole == null)
+        {
+            userRole = new UserRole { RoleName = updateDto.Role };
+            _context.UserRoles.Add(userRole);
+            await _context.SaveChangesAsync();
+        }
+
+        user.UserRoleId = userRole.UserRoleId;
+    }
+
+    // Update user fields
     user.Username = updateDto.Username;
     user.FirstName = updateDto.FirstName;
     user.LastName = updateDto.LastName;
     user.Email = updateDto.Email;
-    user.PasswordHash=updateDto.Password;
-    user.Role = updateDto.Role;
 
-    // Check if a new password is provided and passes the password parameters
-    if (!string.IsNullOrEmpty(updateDto.Password)&&IsValidPassword(user.PasswordHash))
+    if (!string.IsNullOrWhiteSpace(updateDto.Password))
     {
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateDto.Password); // Hash the new password
-    }
-    //Do not allow the user to be updated unless the new updated meets the parameters
-   else   
-    {
-     return BadRequest("Password does not meet the required criteria. It should have at least 8 characters, including uppercase, lowercase, numbers, and special characters.");
+        if (!IsValidPassword(updateDto.Password))
+        {
+            return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
+        }
 
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateDto.Password);
     }
 
-    // Save changes to the database
-    await _context.SaveChangesAsync();
-    
-
-    return Ok("User successfully updated"); // Return updated user data
-}
-
-       //Deleting users
-[HttpDelete("{id}")]
-public async Task<IActionResult> DeleteUser([FromRoute] int id)
-{
-    // Find the user by ID
-    var user = await _context.Users.FindAsync(id);
-
-    // Check if the user exists
-    if (user == null)
-    {
-        return NotFound("User not found.");
-    }
-
-    // Remove the user from the database
-    _context.Users.Remove(user);
     await _context.SaveChangesAsync();
 
-    return Ok("User has been successfully deleted.");
+    return Ok(new { message = "User successfully updated", user = user.ToUserDto() });
 }
 
 
+        // DELETE: api/user/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser([FromRoute] int id)
+        {
+            // Find the user by ID
+            var user = await _context.Users.FindAsync(id);
+
+            // Check if the user exists
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Remove the user from the database
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Ok("User has been successfully deleted.");
+        }
+
+        // GET: api/user/roles
+        [HttpGet("roles")]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            var roles = await _context.UserRoles
+                .Select(r => new { r.UserRoleId, r.RoleName })
+                .ToListAsync();
+
+            return Ok(roles);
+        }
     }
 }

@@ -5,6 +5,7 @@ C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.Test
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.Tests\obj\project.assets.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\appsettings.Development.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\appsettings.json
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.staticwebassets.runtime.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.staticwebassets.endpoints.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\xunit.runner.visualstudio.testadapter.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.exe
@@ -15,7 +16,9 @@ C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.pdb
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Azure.Core.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Azure.Identity.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\BCrypt.Net-Next.dll
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Castle.Core.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Humanizer.dll
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.AspNetCore.OpenApi.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.Bcl.AsyncInterfaces.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.Build.Locator.dll
@@ -62,6 +65,7 @@ C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsof
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.VisualStudio.TestPlatform.Common.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Microsoft.Win32.SystemEvents.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Mono.TextTemplating.dll
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Moq.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Newtonsoft.Json.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll

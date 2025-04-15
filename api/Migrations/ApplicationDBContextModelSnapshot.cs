@@ -17,7 +17,7 @@ namespace api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.3")
+                .HasAnnotation("ProductVersion", "9.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -175,9 +175,8 @@ namespace api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("UserRoleId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -185,7 +184,38 @@ namespace api.Migrations
 
                     b.HasKey("UserId");
 
+                    b.HasIndex("UserRoleId");
+
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("api.Models.UserRole", b =>
+                {
+                    b.Property<int>("UserRoleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserRoleId"));
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("UserRoleId");
+
+                    b.ToTable("UserRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            UserRoleId = 1,
+                            RoleName = "User"
+                        },
+                        new
+                        {
+                            UserRoleId = 2,
+                            RoleName = "SuperUser"
+                        });
                 });
 
             modelBuilder.Entity("api.Models.Wallet", b =>
@@ -261,6 +291,17 @@ namespace api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("api.Models.User", b =>
+                {
+                    b.HasOne("api.Models.UserRole", "UserRole")
+                        .WithMany("Users")
+                        .HasForeignKey("UserRoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UserRole");
+                });
+
             modelBuilder.Entity("api.Models.Wallet", b =>
                 {
                     b.HasOne("api.Models.User", "Users")
@@ -300,6 +341,11 @@ namespace api.Migrations
 
                     b.Navigation("Wallet")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("api.Models.UserRole", b =>
+                {
+                    b.Navigation("Users");
                 });
 #pragma warning restore 612, 618
         }

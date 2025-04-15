@@ -1,53 +1,67 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Models;
 using api.Dtos;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using System;
 
 namespace api.Controllers
 {
-[Route("api/product")]
-[ApiController]
-public class ProductController : ControllerBase
+    [Route("api/product")]
+    [ApiController]
+    public class ProductController : ControllerBase
+    {
+         private readonly ApplicationDBContext _context;
+  
+
+public ProductController(ApplicationDBContext context)
 {
-    private readonly ApplicationDBContext _context;
+    _context = context;
+  
+}
 
-    // Constructor for injecting ApplicationDBContext
-    public ProductController(ApplicationDBContext context)
-    {
-        _context = context;
-    }
-
-    // GET: api/product
-    // Display all products
-    [HttpGet]
-    public IActionResult GetAll()
-    {
-        var products = _context.Products
-                               .ToList()
-                               .Select(product => product.ToProductDto())
-                               .ToList();
-
-        return Ok(products);
-    }
-
-    // Fetch product by id
-    [HttpGet("{id}")]
-    public IActionResult GetById([FromRoute] int id)
-    {
-        var product = _context.Products.Find(id);
-
-        if (product == null)
+        // GET: api/product
+        [HttpGet]
+        public IActionResult GetAll()
         {
-            return NotFound("Product not found.");
+            var products = _context.Products
+                                   .ToList()
+                                   .Select(product => 
+                                   {
+                                       var productDto = product.ToProductDto();
+                                       productDto.ProductImage = GetImageUrl(product.ProductImage); // Add image URL to product DTO
+                                       return productDto;
+                                   })
+                                   .ToList();
+
+            return Ok(products);
         }
 
-        return Ok(product.ToProductDto()); // Mapping to DTO
-    }
+        // GET: api/product/{id}
+        [HttpGet("{id}")]
+        public IActionResult GetById([FromRoute] int id)
+        {
+            var product = _context.Products.Find(id);
 
-    // Fetch products by category name
+            if (product == null)
+            {
+                return NotFound("Product not found.");
+            }
+
+            var productDto = product.ToProductDto();
+            productDto.ProductImage = GetImageUrl(product.ProductImage); // Add image URL to product DTO
+
+            return Ok(productDto);
+        }
+
+        // GET: api/product/byCategory?name=Electronics
+// GET: api/product/byCategory?name=Electronics
 [HttpGet("byCategory")]
 public IActionResult GetProductsByCategory([FromQuery] string name)
 {
@@ -55,154 +69,196 @@ public IActionResult GetProductsByCategory([FromQuery] string name)
     {
         return BadRequest("Category name is required.");
     }
-    //scalable because a select statement to dto is used which avoids loading full entity trees and only retrieves matching products.
-    var products = _context.Products
-        .Where(p => p.ProductCategories.CategoryName.ToLower() == name.ToLower())
-        .Select(p => p.ToProductDto())
-        .ToList();
 
-    if (!products.Any())
+    var productsFromDb = _context.Products
+        .Where(p => p.ProductCategories.CategoryName.ToLower() == name.ToLower())
+        .ToList(); // Query executed here
+
+    if (!productsFromDb.Any())
     {
         return NotFound($"No products found under category '{name}'.");
     }
+
+    // Now safe to use instance method
+    var products = productsFromDb.Select(p => new ProductDto
+    {
+        ProductId = p.ProductId,
+        ProductName = p.ProductName,
+        ProductDescription = p.ProductDescription,
+        UnitPrice = p.UnitPrice,
+        Available = p.Available,
+        Quantity = p.Quantity,
+        CategoryId = p.CategoryId,
+        ProductImage = GetImageUrl(p.ProductImage)
+    }).ToList();
 
     return Ok(products);
 }
 
 
-    // Delete product by product id
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProduct([FromRoute] int id)
-    {
-        var product = await _context.Products.FindAsync(id);
-
-        if (product == null)
+        // DELETE: api/product/{id}
+        [Authorize(Policy = "RequireSuperUser")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProduct([FromRoute] int id)
         {
-            return NotFound("Product not found.");
+            var product = await _context.Products.FindAsync(id);
+
+            if (product == null)
+            {
+                return NotFound("Product not found.");
+            }
+          
+
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+
+            return Ok("Product has been successfully deleted.");
         }
 
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
+        // POST: api/product/addProduct
+        [Authorize(Policy = "RequireSuperUser")]
+        [HttpPost("addProduct")]
+        public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto, IFormFile? imageFile)
+        {
+            try
+            {
+                // Validate product data
+                if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
+                    return BadRequest("Invalid product name.");
+                if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
+                    return BadRequest("Invalid description.");
+                if (productDto.UnitPrice <= 0)
+                    return BadRequest("Price must be positive.");
+                if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
+                    return BadRequest("Invalid availability.");
+                if (productDto.Quantity < 0)
+                    return BadRequest("Quantity cannot be negative.");
 
-        return Ok("Product has been successfully deleted.");
-    }
+                // Check if category exists
+                var categoryExists = await _context.ProductCategories
+                    .AnyAsync(c => c.CategoryId == productDto.CategoryId);
 
-    // Add product to the database
-    // POST: api/product/addProduct
-   [HttpPost("addProduct")]
-public async Task<IActionResult> AddProduct([FromBody] ProductDto productDto)
+                if (!categoryExists)
+                    return BadRequest("The specified category does not exist.");
+
+                string? imagePath = null;
+
+                if (imageFile != null && imageFile.Length > 0)
+                {
+                    // File upload logic
+                    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProductImages");
+                    Directory.CreateDirectory(uploadsFolder);
+
+                    var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await imageFile.CopyToAsync(stream);
+                    }
+
+                    imagePath = $"/ProductImages/{uniqueFileName}";
+                }
+
+                // Create new product
+                var product = new Product
+                {
+                    ProductName = productDto.ProductName,
+                    ProductDescription = productDto.ProductDescription,
+                    UnitPrice = productDto.UnitPrice,
+                    Available = productDto.Available,
+                    Quantity = productDto.Quantity,
+                    ProductImage = imagePath,
+                    CategoryId = productDto.CategoryId
+                };
+
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();
+
+                // Return product with image URL
+                var productResult = product.ToProductDto();
+                productResult.ProductImage = GetImageUrl(product.ProductImage);
+
+                return CreatedAtAction("GetById", new { id = product.ProductId }, productResult);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // PUT: api/product/{id}
+       [Authorize(Policy = "RequireSuperUser")]
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto, IFormFile? imageFile)
 {
-    // Validate input data manually
-    if (string.IsNullOrEmpty(productDto.ProductName))
+    if (!ModelState.IsValid)
     {
-        return BadRequest("Product name is required.");
+        return BadRequest(ModelState);
     }
 
-    if (productDto.ProductName.Length > 50)
+    var product = await _context.Products.FindAsync(id);
+
+    if (product == null)
     {
-        return BadRequest("Product name cannot exceed 50 characters.");
+        return NotFound("Product not found.");
     }
 
-    if (string.IsNullOrEmpty(productDto.ProductDescription))
+    // Update product details
+    product.ProductName = productDto.ProductName;
+    product.ProductDescription = productDto.ProductDescription;
+    product.UnitPrice = productDto.UnitPrice;
+    product.Available = productDto.Available;
+    product.Quantity = productDto.Quantity;
+    product.CategoryId = productDto.CategoryId;
+
+    // Handle image file upload
+    if (imageFile != null && imageFile.Length > 0)
     {
-        return BadRequest("Product description is required.");
+        try
+        {
+            // Delete old image if it exists
+            if (!string.IsNullOrEmpty(product.ProductImage))
+            {
+                var oldImagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", product.ProductImage.TrimStart('/'));
+                // Use System.IO.File to avoid conflict with ControllerBase.File()
+                if (System.IO.File.Exists(oldImagePath))
+                {
+                    System.IO.File.Delete(oldImagePath);  // Delete old image from server
+                }
+            }
+
+            // Save new image
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProductImages");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await imageFile.CopyToAsync(stream);
+            }
+
+            product.ProductImage = $"/ProductImages/{uniqueFileName}";
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error uploading file: {ex.Message}");
+        }
     }
 
-    if (productDto.ProductDescription.Length > 200)
-    {
-        return BadRequest("Product description cannot exceed 200 characters.");
-    }
+    // Save updated product
+    await _context.SaveChangesAsync();
 
-    if (productDto.UnitPrice <= 0)
-    {
-        return BadRequest("Unit price must be a positive value.");
-    }
-
-    if (string.IsNullOrEmpty(productDto.Available))
-    {
-        return BadRequest("Availability status is required.");
-    }
-
-    if (productDto.Available.Length > 50)
-    {
-        return BadRequest("Availability status cannot exceed 50 characters.");
-    }
-
-    if (productDto.Quantity < 0)
-    {
-        return BadRequest("Quantity cannot be negative.");
-    }
-
-    if (!string.IsNullOrEmpty(productDto.ProductImage) && productDto.ProductImage.Length > 255)
-    {
-        return BadRequest("Product image URL cannot exceed 255 characters.");
-    }
-
-    // Validate if the category exists
-    var categoryExists = await _context.ProductCategories
-        .AnyAsync(c => c.CategoryId == productDto.CategoryId);
-
-    if (!categoryExists)
-    {
-        return BadRequest("The specified category does not exist.");
-    }
-
-    // Create a new product object
-    var product = new Product
-    {
-        ProductName = productDto.ProductName,
-        ProductDescription = productDto.ProductDescription,
-        UnitPrice = productDto.UnitPrice,
-        Available = productDto.Available,
-        Quantity = productDto.Quantity,
-        ProductImage = productDto.ProductImage, // Assuming image is a URL or file path
-        CategoryId = productDto.CategoryId // This will now safely reference an existing category
-    };
-
-    // Save the new product to the database
-    try
-    {
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction("GetById", new { id = product.ProductId }, product.ToProductDto());
-    }
-    catch (DbUpdateException ex)
-    {
-        // Handle any exceptions related to database constraints
-        return StatusCode(500, $"Internal server error: {ex.Message}");
-    }
+    return Ok("Product successfully updated.");
 }
 
-    // Update product in the database
-    // PUT: api/product/update
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromBody] ProductDto productDto)
-    {
-        // Check if model state is valid
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState); // Return validation errors
-        }
-
-        var product = await _context.Products.FindAsync(id);
-
-        if (product == null)
-        {
-            return NotFound("Product not found.");
-        }
-
-        product.ProductName = productDto.ProductName;
-        product.ProductDescription = productDto.ProductDescription;
-        product.UnitPrice = productDto.UnitPrice;
-        product.Available = productDto.Available;
-        product.Quantity = productDto.Quantity;
-        product.ProductImage = productDto.ProductImage;
-        product.CategoryId = productDto.CategoryId;
-
-        await _context.SaveChangesAsync();
-
-        return Ok("Product successfully updated");
-    }
+     public static string GetImageUrl(string imageName)
+{
+    return $"https://yourdomain.com/images/{imageName}";
 }
- }
+}
+}
+
 

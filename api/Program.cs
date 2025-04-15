@@ -1,51 +1,104 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using api.Data; // Your ApplicationDBContext
-//using Swashbuckle.AspNetCore.SwaggerUI; // Required for Swagger UI
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Security.Claims;
+using System.Text;
+using api.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddEndpointsApiExplorer();  // Add endpoints API explorer
-builder.Services.AddSwaggerGen();  // Add Swagger generation service
+// 1. Add Controllers & Endpoints
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
 
-// Corrected connection string
-builder.Services.AddDbContext<ApplicationDBContext>(options => 
+// 2. Swagger + JWT Auth in Swagger UI
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Self Service Kiosk API",
+        Version = "v1"
+    });
 
+    // Add JWT Bearer Authentication to Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter JWT token like this: **Bearer <your_token>**"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] { }
+        }
+    });
+});
+
+// 3. Database - EF Core
+builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 4. JWT Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
+});
+
+// 5. Authorization Policy - SuperUser (RoleId = 2)
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireSuperUser", policy =>
+        policy.RequireClaim(ClaimTypes.Role, "2"));
+});
 
 var app = builder.Build();
 
-//
-// Configure the HTTP request pipeline.
+// 6. Configure Middleware Pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();  // Use Swagger middleware to generate API documentation
-    app.UseSwaggerUI();  // Use Swagger UI to display the API documentation
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-/* void ConfigureServices(IServiceCollection services)
-{
-    // Add Identity services
-    services.AddIdentity<User, IdentityRole>()
-        .AddEntityFrameworkStores<ApplicationDBContext>()
-        .AddDefaultTokenProviders();
-
-    // Add Authentication and Cookie Middleware
-    services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-        .AddCookie(options =>
-        {
-            options.LoginPath = "/api/user/login";  // Customize login path if needed
-            options.LogoutPath = "/api/user/logout"; // Customize logout path
-        });
-
-    services.AddControllers();
-}
-
-*/
 app.UseHttpsRedirection();
 
+// 🔽 Serve static files from wwwroot (e.g., images)
+app.UseStaticFiles(); // enables wwwroot by default
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
- 

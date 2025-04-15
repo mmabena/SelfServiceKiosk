@@ -21,94 +21,104 @@ namespace api.Data
         public DbSet<CartProduct> CartProducts { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<User> Users { get; set; }
-        // public DbSet<UserRole> UserRoles { get; set; }  // Add DbSet for UserRole
+        public DbSet<UserRole> UserRoles { get; set; }  // Add DbSet for UserRole
         public DbSet<Wallet> Wallets { get; set; }
 
        protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    // Defining primary keys
-    modelBuilder.Entity<Product>()
-        .HasKey(p => p.ProductId);
+       {
+            // Defining primary keys
+            modelBuilder.Entity<Product>()
+                .HasKey(p => p.ProductId);
 
-    modelBuilder.Entity<ProductCategory>()
-        .HasKey(c => c.CategoryId);
+            modelBuilder.Entity<ProductCategory>()
+                .HasKey(c => c.CategoryId);
 
-    modelBuilder.Entity<Cart>()
-        .HasKey(c => c.CartId);
+            modelBuilder.Entity<Cart>()
+                .HasKey(c => c.CartId);
 
-    modelBuilder.Entity<CartProduct>()
-        .HasKey(cp => new { cp.ProductId, cp.CartId }); // Composite key
+            modelBuilder.Entity<CartProduct>()
+                .HasKey(cp => new { cp.ProductId, cp.CartId }); // Composite key
 
-    modelBuilder.Entity<Transaction>()
-        .HasKey(t => t.TransactionId);
+            modelBuilder.Entity<Transaction>()
+                .HasKey(t => t.TransactionId);
 
-    modelBuilder.Entity<User>()
-        .HasKey(u => u.UserId);
+            modelBuilder.Entity<User>()
+                .HasKey(u => u.UserId);
+                
+            modelBuilder.Entity<UserRole>()
+                .HasKey(ur => ur.UserRoleId);
 
-    modelBuilder.Entity<Wallet>()
-        .HasKey(w => w.UserId);
+            modelBuilder.Entity<Wallet>()
+                .HasKey(w => w.UserId);
 
-    // One-to-many relationship between Product and ProductCategory
-    modelBuilder.Entity<Product>()
-        .HasOne(p => p.ProductCategories)
-        .WithMany(c => c.Products)
-        .HasForeignKey(p => p.CategoryId);
+            // One-to-many relationship between Product and ProductCategory
+            modelBuilder.Entity<Product>()
+                .HasOne(p => p.ProductCategories)
+                .WithMany(c => c.Products)
+                .HasForeignKey(p => p.CategoryId);
 
-    // One-to-many relationship between Cart and User
-    modelBuilder.Entity<Cart>()
-        .HasOne(c => c.Users)
-        .WithMany(u => u.Carts)
-        .HasForeignKey(c => c.UserId);
+            // One-to-many relationship between Cart and User
+            modelBuilder.Entity<Cart>()
+                .HasOne(c => c.Users)
+                .WithMany(u => u.Carts)
+                .HasForeignKey(c => c.UserId);
 
-    // One-to-many relationship between Cart and Transaction
-    modelBuilder.Entity<Cart>()
-        .HasOne(c => c.Transactions)
-        .WithMany(t => t.Carts)
-        .HasForeignKey(c => c.TransactionId)
-        .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
+            // One-to-many relationship between Cart and Transaction
+            modelBuilder.Entity<Cart>()
+                .HasOne(c => c.Transactions)
+                .WithMany(t => t.Carts)
+                .HasForeignKey(c => c.TransactionId)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
 
-    // One-to-many relationship between Cart and CartProduct
-    modelBuilder.Entity<CartProduct>()
-        .HasOne(cp => cp.Products)
-        .WithMany(p => p.CartProducts)
-        .HasForeignKey(cp => cp.ProductId)
-        .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
+            // One-to-many relationship between Cart and CartProduct
+            modelBuilder.Entity<CartProduct>()
+                .HasOne(cp => cp.Products)
+                .WithMany(p => p.CartProducts)
+                .HasForeignKey(cp => cp.ProductId)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
 
-    modelBuilder.Entity<CartProduct>()
-        .HasOne(cp => cp.Carts)
-        .WithMany(c => c.CartProducts)
-        .HasForeignKey(cp => cp.CartId)
-        .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
+            modelBuilder.Entity<CartProduct>()
+                .HasOne(cp => cp.Carts)
+                .WithMany(c => c.CartProducts)
+                .HasForeignKey(cp => cp.CartId)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
 
-    // One-to-one relationship between User and Wallet
-    modelBuilder.Entity<Wallet>()
-        .HasOne(w => w.Users)
-        .WithOne(u => u.Wallet)
-        .HasForeignKey<Wallet>(w => w.UserId);
+            // One-to-one relationship between User and Wallet
+            modelBuilder.Entity<Wallet>()
+                .HasOne(w => w.Users)
+                .WithOne(u => u.Wallet)
+                .HasForeignKey<Wallet>(w => w.UserId);
 
-    // Adding precision for decimal properties
-    modelBuilder.Entity<Product>()
-        .Property(p => p.UnitPrice)
-        .HasColumnType("money"); // Or use HasPrecision if you want to specify precision and scale
+            // Define the User-UserRole relationship
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.UserRole)
+                .WithMany(ur => ur.Users)
+                .HasForeignKey(u => u.UserRoleId)
+                .OnDelete(DeleteBehavior.Restrict);  // Prevent cascading delete
 
-    modelBuilder.Entity<Cart>()
-        .Property(c => c.UnitPrice)
-        .HasColumnType("money");
+            // Adding precision for decimal properties
+            modelBuilder.Entity<Product>()
+                .Property(p => p.UnitPrice)
+                .HasColumnType("money"); // Or use HasPrecision if you want to specify precision and scale
 
-    modelBuilder.Entity<Wallet>()
-        .Property(w => w.Balance)
-        .HasColumnType("money");
+            modelBuilder.Entity<Cart>()
+                .Property(c => c.UnitPrice)
+                .HasColumnType("money");
 
-        //creating the user role relationships to user
+            modelBuilder.Entity<Wallet>()
+                .Property(w => w.Balance)
+                .HasColumnType("money");
+
+            // Seed some default user roles
+            modelBuilder.Entity<UserRole>()
+            .HasData(
+
+                new UserRole { UserRoleId = 1, RoleName = "User" },
+                new UserRole { UserRoleId = 2, RoleName = "SuperUser" }
         
-            // // Define the User-UserRole relationship
-            // modelBuilder.Entity<User>()
-            //     .HasOne(u => u.UserRole)
-            //     .WithMany(ur => ur.Users)
-            //     .HasForeignKey(u => u.UserRoleId)
-            //     .OnDelete(DeleteBehavior.Restrict);  // You can change the delete behavior as needed
+            );
 
-    base.OnModelCreating(modelBuilder);
-}
+            base.OnModelCreating(modelBuilder);
+        }
     }
 }
