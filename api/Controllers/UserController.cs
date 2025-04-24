@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
-using api.Data;  
-using api.Models; 
-using api.Dtos; 
+using api.Data;
+using api.Models;
+using api.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
-using BCrypt.Net; 
+using BCrypt.Net;
 using System.Text.RegularExpressions;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-
 
 namespace api.Controllers
 {
@@ -20,13 +19,13 @@ namespace api.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDBContext _context;
-      private readonly IConfiguration _configuration;
+        private readonly IConfiguration _configuration;
 
-public UserController(ApplicationDBContext context, IConfiguration configuration)
-{
-    _context = context;
-    _configuration = configuration;
-}
+        public UserController(ApplicationDBContext context, IConfiguration configuration)
+        {
+            _context = context;
+            _configuration = configuration;
+        }
 
         // GET: api/user
         [HttpGet]
@@ -58,59 +57,59 @@ public UserController(ApplicationDBContext context, IConfiguration configuration
         }
 
         // POST: api/user/register
-       [HttpPost("register")]
-public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
-{
-    if (string.IsNullOrWhiteSpace(registrationDto.Username) ||
-        string.IsNullOrWhiteSpace(registrationDto.Password) ||
-        string.IsNullOrWhiteSpace(registrationDto.Email) ||
-        string.IsNullOrWhiteSpace(registrationDto.FirstName) ||
-        string.IsNullOrWhiteSpace(registrationDto.LastName))
-    {
-        return BadRequest("All fields are required and cannot be empty.");
-    }
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
+        {
+            if (string.IsNullOrWhiteSpace(registrationDto.Username) ||
+                string.IsNullOrWhiteSpace(registrationDto.Password) ||
+                string.IsNullOrWhiteSpace(registrationDto.Email) ||
+                string.IsNullOrWhiteSpace(registrationDto.FirstName) ||
+                string.IsNullOrWhiteSpace(registrationDto.LastName))
+            {
+                return BadRequest("All fields are required and cannot be empty.");
+            }
 
-    if (!IsValidEmail(registrationDto.Email))
-    {
-        return BadRequest("Email must be a valid @singular.co.za address.");
-    }
+            if (!IsValidEmail(registrationDto.Email))
+            {
+                return BadRequest("Email must be a valid @singular.co.za address.");
+            }
 
-    if (!IsValidPassword(registrationDto.Password))
-    {
-        return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
-    }
+            if (!IsValidPassword(registrationDto.Password))
+            {
+                return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
+            }
 
-    var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == registrationDto.Username);
-    if (existingUser != null)
-    {
-        return BadRequest("Username is already taken.");
-    }
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == registrationDto.Username);
+            if (existingUser != null)
+            {
+                return BadRequest("Username is already taken.");
+            }
 
-    string roleName = string.IsNullOrEmpty(registrationDto.Role) ? "User" : registrationDto.Role;
-    var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == roleName);
+            string roleName = string.IsNullOrEmpty(registrationDto.Role) ? "User" : registrationDto.Role;
+            var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == roleName);
 
-    if (userRole == null)
-    {
-        userRole = new UserRole { RoleName = roleName };
-        _context.UserRoles.Add(userRole);
-        await _context.SaveChangesAsync();
-    }
+            if (userRole == null)
+            {
+                userRole = new UserRole { RoleName = roleName };
+                _context.UserRoles.Add(userRole);
+                await _context.SaveChangesAsync();
+            }
 
-    var user = new User
-    {
-        Username = registrationDto.Username,
-        FirstName = registrationDto.FirstName,
-        LastName = registrationDto.LastName,
-        Email = registrationDto.Email,
-        UserRoleId = userRole.UserRoleId,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password)
-    };
+            var user = new User
+            {
+                Username = registrationDto.Username,
+                FirstName = registrationDto.FirstName,
+                LastName = registrationDto.LastName,
+                Email = registrationDto.Email,
+                UserRoleId = userRole.UserRoleId,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password)
+            };
 
-    _context.Users.Add(user);
-    await _context.SaveChangesAsync();
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
-    return CreatedAtAction("GetById", new { id = user.UserId }, user.ToUserDto());
-}
+            return CreatedAtAction("GetById", new { id = user.UserId }, user.ToUserDto());
+        }
 
         // Password validation logic
         private bool IsValidPassword(string password)
@@ -120,34 +119,36 @@ public async Task<IActionResult> Register([FromBody] UserRegistrationDto registr
             var hasLowerCase = new Regex(@"[a-z]");
             var hasDigit = new Regex(@"[0-9]");
             var hasSpecialChar = new Regex(@"[\W_]");
-            var hasMinLength = password.Length == 8;
+            var hasMinLength = password.Length >= 8;  // At least 8 characters
 
-            return hasUpperCase.IsMatch(password) && hasLowerCase.IsMatch(password) && 
+            return hasUpperCase.IsMatch(password) && hasLowerCase.IsMatch(password) &&
                    hasDigit.IsMatch(password) && hasSpecialChar.IsMatch(password) && hasMinLength;
         }
-private bool IsValidEmail(string email)
-{
-    // Must end with @singular.co.za
-    return Regex.IsMatch(email, @"^[^@\s]+@singular\.co\.za$", RegexOptions.IgnoreCase);
-}
 
+        private bool IsValidEmail(string email)
+        {
+            // Must end with @singular.co.za
+            return Regex.IsMatch(email, @"^[^@\s]+@singular\.co\.za$", RegexOptions.IgnoreCase);
+        }
 
-
-        // POST: api/user/login
-       [HttpPost("login")]
+       // POST: api/user/login
+[HttpPost("login")]
 public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
 {
     if (string.IsNullOrEmpty(loginDto.Username) || string.IsNullOrEmpty(loginDto.Password))
     {
         return BadRequest("Username and password are required.");
     }
+    //var loginResult=await _userRepository.LoginAsync(loginDto);
 
+    // Look for the user by username
     var user = await _context.Users
-        .Include(u => u.UserRole)
+        .Include(u => u.UserRole)  // Include role if needed
         .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
 
     if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
     {
+        // Incorrect username or password
         return Unauthorized("Invalid username or password.");
     }
 
@@ -177,7 +178,7 @@ public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
     {
         message = "Login successful",
         token = tokenString,
-        user = user.ToUserDto()
+        user = user.ToUserDto()  // Optionally include user details if needed
     });
 }
 
@@ -197,66 +198,65 @@ public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
         }
 
         // PUT: api/user/{id}
-[HttpPut("{id}")]
-public async Task<IActionResult> UpdateUserData([FromRoute] int id, [FromBody] UserUpdateDto updateDto)
-{
-    var user = await _context.Users.Include(u => u.UserRole).FirstOrDefaultAsync(u => u.UserId == id);
-    if (user == null)
-    {
-        return NotFound("User not found.");
-    }
-
-    // Required fields validation
-    if (string.IsNullOrWhiteSpace(updateDto.Username) ||
-        string.IsNullOrWhiteSpace(updateDto.Email) ||
-        string.IsNullOrWhiteSpace(updateDto.FirstName) ||
-        string.IsNullOrWhiteSpace(updateDto.LastName))
-    {
-        return BadRequest("All fields are required and cannot be empty.");
-    }
-
-    // Email must be @singular.co.za
-    if (!IsValidEmail(updateDto.Email))
-    {
-        return BadRequest("Email must be a valid @singular.co.za address.");
-    }
-
-    // Handle role change if needed
-    if (!string.IsNullOrEmpty(updateDto.Role) && 
-        (user.UserRole == null || user.UserRole.RoleName != updateDto.Role))
-    {
-        var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == updateDto.Role);
-        if (userRole == null)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUserData([FromRoute] int id, [FromBody] UserUpdateDto updateDto)
         {
-            userRole = new UserRole { RoleName = updateDto.Role };
-            _context.UserRoles.Add(userRole);
+            var user = await _context.Users.Include(u => u.UserRole).FirstOrDefaultAsync(u => u.UserId == id);
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Required fields validation
+            if (string.IsNullOrWhiteSpace(updateDto.Username) ||
+                string.IsNullOrWhiteSpace(updateDto.Email) ||
+                string.IsNullOrWhiteSpace(updateDto.FirstName) ||
+                string.IsNullOrWhiteSpace(updateDto.LastName))
+            {
+                return BadRequest("All fields are required and cannot be empty.");
+            }
+
+            // Email must be @singular.co.za
+            if (!IsValidEmail(updateDto.Email))
+            {
+                return BadRequest("Email must be a valid @singular.co.za address.");
+            }
+
+            // Handle role change if needed
+            if (!string.IsNullOrEmpty(updateDto.Role) &&
+                (user.UserRole == null || user.UserRole.RoleName != updateDto.Role))
+            {
+                var userRole = await _context.UserRoles.FirstOrDefaultAsync(r => r.RoleName == updateDto.Role);
+                if (userRole == null)
+                {
+                    userRole = new UserRole { RoleName = updateDto.Role };
+                    _context.UserRoles.Add(userRole);
+                    await _context.SaveChangesAsync();
+                }
+
+                user.UserRoleId = userRole.UserRoleId;
+            }
+
+            // Update user fields
+            user.Username = updateDto.Username;
+            user.FirstName = updateDto.FirstName;
+            user.LastName = updateDto.LastName;
+            user.Email = updateDto.Email;
+
+            if (!string.IsNullOrWhiteSpace(updateDto.Password))
+            {
+                if (!IsValidPassword(updateDto.Password))
+                {
+                    return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
+                }
+
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateDto.Password);
+            }
+
             await _context.SaveChangesAsync();
+
+            return Ok(new { message = "User successfully updated", user = user.ToUserDto() });
         }
-
-        user.UserRoleId = userRole.UserRoleId;
-    }
-
-    // Update user fields
-    user.Username = updateDto.Username;
-    user.FirstName = updateDto.FirstName;
-    user.LastName = updateDto.LastName;
-    user.Email = updateDto.Email;
-
-    if (!string.IsNullOrWhiteSpace(updateDto.Password))
-    {
-        if (!IsValidPassword(updateDto.Password))
-        {
-            return BadRequest("Password must be at least 8 characters long, including uppercase, lowercase, number, and special character.");
-        }
-
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateDto.Password);
-    }
-
-    await _context.SaveChangesAsync();
-
-    return Ok(new { message = "User successfully updated", user = user.ToUserDto() });
-}
-
 
         // DELETE: api/user/{id}
         [HttpDelete("{id}")]
@@ -277,6 +277,32 @@ public async Task<IActionResult> UpdateUserData([FromRoute] int id, [FromBody] U
 
             return Ok("User has been successfully deleted.");
         }
+        // POST: api/user/validate
+[HttpPost("validate")]
+public IActionResult ValidateToken([FromBody] string token)
+{
+    try
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
+        tokenHandler.ValidateToken(token, new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidIssuer = _configuration["Jwt:Issuer"],
+            ValidAudience = _configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        }, out SecurityToken validatedToken);
+
+        // If the token is valid
+        return Ok(new { message = "Token is valid." });
+    }
+    catch (Exception ex)
+    {
+        return Unauthorized(new { message = "Token is invalid.", error = ex.Message });
+    }
+}
+
 
         // GET: api/user/roles
         [HttpGet("roles")]

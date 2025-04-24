@@ -6,76 +6,105 @@ using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
 using api.Data;
+using api.Interfaces;
+using api.Repository;
+using Microsoft.Extensions.FileProviders;
+using System.IO;
+using CloudinaryDotNet;
+using api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Controllers & Endpoints
+
+var cloudinarySettings = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+
+var account = new Account(
+    cloudinarySettings.CloudName,
+    cloudinarySettings.ApiKey,
+    cloudinarySettings.ApiSecret
+);
+
+var cloudinary = new Cloudinary(account)
+{
+    Api = { Secure = true }
+};
+
+builder.Services.AddSingleton(cloudinary);
+// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-// 2. Swagger + JWT Auth in Swagger UI
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Self Service Kiosk API",
-        Version = "v1"
-    });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Self Service Kiosk API", Version = "v1" });
 
-    // Add JWT Bearer Authentication to Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Enter JWT token like this: **Bearer <your_token>**"
-    });
+   options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+{
+    Name = "Authorization",
+    Type = SecuritySchemeType.Http, // ✅ Use Http instead of ApiKey for JWT Bearer
+    Scheme = "Bearer",
+    BearerFormat = "JWT",
+    In = ParameterLocation.Header,
+    Description = "Enter JWT token like this: Bearer YOUR_TOKEN_HERE"
+});
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+options.AddSecurityRequirement(new OpenApiSecurityRequirement
+{
     {
+        new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
+            Reference = new OpenApiReference
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
             },
-            new string[] { }
-        }
+            Scheme = "Bearer",
+            Name = "Bearer",
+            In = ParameterLocation.Header
+        },
+        Array.Empty<string>()
+    }
+});
+
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // required when using cookies or Authorization headers
     });
 });
 
-// 3. Database - EF Core
+// DB Context
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
-// 4. JWT Authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
+// Dependency Injection
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
+// JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+    });
 
-// 5. Authorization Policy - SuperUser (RoleId = 2)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireSuperUser", policy =>
@@ -84,7 +113,6 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// 6. Configure Middleware Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -93,8 +121,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 🔽 Serve static files from wwwroot (e.g., images)
-app.UseStaticFiles(); // enables wwwroot by default
+app.UseStaticFiles();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

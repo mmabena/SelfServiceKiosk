@@ -10,6 +10,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using System.IO;
 using System;
+using api.Interfaces;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
 
 namespace api.Controllers
 {
@@ -17,37 +20,51 @@ namespace api.Controllers
     [ApiController]
     public class ProductController : ControllerBase
     {
-         private readonly ApplicationDBContext _context;
-  
+        private readonly Cloudinary _cloudinary;
+        private readonly IProductRepository _productRepo;
+        private readonly ApplicationDBContext _context;
+        private readonly string _imageUploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProductImages");
 
-public ProductController(ApplicationDBContext context)
-{
-    _context = context;
-  
-}
+        public ProductController(ApplicationDBContext context, IProductRepository productRepo,Cloudinary cloudinary)
+        {
+            _context = context;
+            _productRepo = productRepo;
+             _cloudinary = cloudinary;
+        }
 
         // GET: api/product
-        [HttpGet]
-        public IActionResult GetAll()
-        {
-            var products = _context.Products
-                                   .ToList()
-                                   .Select(product => 
-                                   {
-                                       var productDto = product.ToProductDto();
-                                       productDto.ProductImage = GetImageUrl(product.ProductImage); // Add image URL to product DTO
-                                       return productDto;
-                                   })
-                                   .ToList();
+[HttpGet]
+public async Task<IActionResult> GetAll()
+{
+    var products = await _productRepo.GetAllAsync();
 
-            return Ok(products);
-        }
+    if (products == null || !products.Any())
+    {
+        return NotFound("No products found.");
+    }
+
+    var productDtos = products.Select(product => product.ToProductDto()).ToList();
+
+    return Ok(productDtos);
+}
+
+        // Generate image URL
+   private static string GetImageUrl(string imageName)
+{
+    // Cloudinary URL format
+    string cloudinaryBaseUrl = "https://res.cloudinary.com/djmafre5k/image/upload/";
+
+    // Assuming that the image name includes the version and other parameters (e.g., after upload to Cloudinary).
+    // If your imageName is something like 'image_123.jpg', update accordingly.
+    return $"{cloudinaryBaseUrl}{imageName}";
+}
+
 
         // GET: api/product/{id}
         [HttpGet("{id}")]
-        public IActionResult GetById([FromRoute] int id)
+        public async Task<IActionResult> GetById([FromRoute] int id)
         {
-            var product = _context.Products.Find(id);
+            var product = await _productRepo.GetByIdAsync(id);
 
             if (product == null)
             {
@@ -61,26 +78,16 @@ public ProductController(ApplicationDBContext context)
         }
 
         // GET: api/product/byCategory?name=Electronics
-// GET: api/product/byCategory?name=Electronics
-[HttpGet("byCategory")]
-public IActionResult GetProductsByCategory([FromQuery] string name)
+ [HttpGet("byCategory")]
+public async Task<IActionResult> GetProductsByCategory([FromQuery] string name)
 {
     if (string.IsNullOrWhiteSpace(name))
     {
         return BadRequest("Category name is required.");
     }
 
-    var productsFromDb = _context.Products
-        .Where(p => p.ProductCategories.CategoryName.ToLower() == name.ToLower())
-        .ToList(); // Query executed here
-
-    if (!productsFromDb.Any())
-    {
-        return NotFound($"No products found under category '{name}'.");
-    }
-
-    // Now safe to use instance method
-    var products = productsFromDb.Select(p => new ProductDto
+    var products = await _productRepo.GetByCategoryAsync(name);
+    var productDtos = products.Select(p => new ProductDto
     {
         ProductId = p.ProductId,
         ProductName = p.ProductName,
@@ -89,10 +96,15 @@ public IActionResult GetProductsByCategory([FromQuery] string name)
         Available = p.Available,
         Quantity = p.Quantity,
         CategoryId = p.CategoryId,
-        ProductImage = GetImageUrl(p.ProductImage)
+        ProductImage = p.ProductImage // Cloudinary URL already stored in DB
     }).ToList();
 
-    return Ok(products);
+    if (!productDtos.Any())
+    {
+        return NotFound($"No products found under category '{name}'.");
+    }
+
+    return Ok(productDtos);
 }
 
 
@@ -101,110 +113,90 @@ public IActionResult GetProductsByCategory([FromQuery] string name)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct([FromRoute] int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            var product = await _productRepo.DeleteAsync(id);
 
             if (product == null)
             {
                 return NotFound("Product not found.");
             }
-          
-
-            _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
 
             return Ok("Product has been successfully deleted.");
-        }
+        } 
 
-        // POST: api/product/addProduct
-        [Authorize(Policy = "RequireSuperUser")]
-        [HttpPost("addProduct")]
-        public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto, IFormFile? imageFile)
+        
+       // POST: api/product/addProduct
+[Authorize(Policy = "RequireSuperUser")]
+[HttpPost("addProduct")]
+public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto, IFormFile? imageFile)
+{
+    if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
+        return BadRequest("Invalid product name.");
+    if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
+        return BadRequest("Invalid description.");
+    if (productDto.UnitPrice <= 0)
+        return BadRequest("Price must be positive.");
+    if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
+        return BadRequest("Invalid availability.");
+    if (productDto.Quantity < 0)
+        return BadRequest("Quantity cannot be negative.");
+
+    var categoryExists = await _context.ProductCategories.AnyAsync(c => c.CategoryId == productDto.CategoryId);
+    if (!categoryExists)
+        return BadRequest("The specified category does not exist.");
+
+    string? imageUrl = null;
+
+    if (imageFile != null && imageFile.Length > 0)
+    {
+        var uploadParams = new ImageUploadParams
         {
-            try
-            {
-                // Validate product data
-                if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
-                    return BadRequest("Invalid product name.");
-                if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
-                    return BadRequest("Invalid description.");
-                if (productDto.UnitPrice <= 0)
-                    return BadRequest("Price must be positive.");
-                if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
-                    return BadRequest("Invalid availability.");
-                if (productDto.Quantity < 0)
-                    return BadRequest("Quantity cannot be negative.");
+            File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
+            Folder = "ProductImages",
+            UseFilename = true,
+            UniqueFilename = true,
+            Overwrite = false
+        };
 
-                // Check if category exists
-                var categoryExists = await _context.ProductCategories
-                    .AnyAsync(c => c.CategoryId == productDto.CategoryId);
+        var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-                if (!categoryExists)
-                    return BadRequest("The specified category does not exist.");
-
-                string? imagePath = null;
-
-                if (imageFile != null && imageFile.Length > 0)
-                {
-                    // File upload logic
-                    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProductImages");
-                    Directory.CreateDirectory(uploadsFolder);
-
-                    var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await imageFile.CopyToAsync(stream);
-                    }
-
-                    imagePath = $"/ProductImages/{uniqueFileName}";
-                }
-
-                // Create new product
-                var product = new Product
-                {
-                    ProductName = productDto.ProductName,
-                    ProductDescription = productDto.ProductDescription,
-                    UnitPrice = productDto.UnitPrice,
-                    Available = productDto.Available,
-                    Quantity = productDto.Quantity,
-                    ProductImage = imagePath,
-                    CategoryId = productDto.CategoryId
-                };
-
-                _context.Products.Add(product);
-                await _context.SaveChangesAsync();
-
-                // Return product with image URL
-                var productResult = product.ToProductDto();
-                productResult.ProductImage = GetImageUrl(product.ProductImage);
-
-                return CreatedAtAction("GetById", new { id = product.ProductId }, productResult);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+        if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+        {
+            imageUrl = uploadResult.SecureUrl.ToString(); // ✅ Cloudinary image URL
         }
+        else
+        {
+            return BadRequest("Failed to upload image to Cloudinary.");
+        }
+    }
 
-        // PUT: api/product/{id}
-       [Authorize(Policy = "RequireSuperUser")]
+    var product = new Product
+    {
+        ProductName = productDto.ProductName,
+        ProductDescription = productDto.ProductDescription,
+        UnitPrice = productDto.UnitPrice,
+        Available = productDto.Available,
+        Quantity = productDto.Quantity,
+        ProductImage = imageUrl,
+        CategoryId = productDto.CategoryId
+    };
+
+    await _productRepo.CreateAsync(product, null); // Image already uploaded
+
+    var productResult = product.ToProductDto();
+    productResult.ProductImage = product.ProductImage;
+
+    return CreatedAtAction("GetById", new { id = product.ProductId }, productResult);
+}
+
+// PUT: api/product/{id}
+[Authorize(Policy = "RequireSuperUser")]
 [HttpPut("{id}")]
 public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto, IFormFile? imageFile)
 {
-    if (!ModelState.IsValid)
-    {
-        return BadRequest(ModelState);
-    }
-
-    var product = await _context.Products.FindAsync(id);
-
+    var product = await _productRepo.GetByIdAsync(id);
     if (product == null)
-    {
         return NotFound("Product not found.");
-    }
 
-    // Update product details
     product.ProductName = productDto.ProductName;
     product.ProductDescription = productDto.ProductDescription;
     product.UnitPrice = productDto.UnitPrice;
@@ -212,53 +204,32 @@ public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] Pr
     product.Quantity = productDto.Quantity;
     product.CategoryId = productDto.CategoryId;
 
-    // Handle image file upload
     if (imageFile != null && imageFile.Length > 0)
     {
-        try
+        var uploadParams = new ImageUploadParams
         {
-            // Delete old image if it exists
-            if (!string.IsNullOrEmpty(product.ProductImage))
-            {
-                var oldImagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", product.ProductImage.TrimStart('/'));
-                // Use System.IO.File to avoid conflict with ControllerBase.File()
-                if (System.IO.File.Exists(oldImagePath))
-                {
-                    System.IO.File.Delete(oldImagePath);  // Delete old image from server
-                }
-            }
+            File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
+            Folder = "ProductImages",
+            UseFilename = true,
+            UniqueFilename = true,
+            Overwrite = false
+        };
 
-            // Save new image
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProductImages");
-            Directory.CreateDirectory(uploadsFolder);
+        var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await imageFile.CopyToAsync(stream);
-            }
-
-            product.ProductImage = $"/ProductImages/{uniqueFileName}";
+        if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+        {
+            product.ProductImage = uploadResult.SecureUrl.ToString();
         }
-        catch (Exception ex)
+        else
         {
-            return StatusCode(500, $"Error uploading file: {ex.Message}");
+            return BadRequest("Failed to upload image to Cloudinary.");
         }
     }
 
-    // Save updated product
-    await _context.SaveChangesAsync();
+    await _productRepo.UpdateAsync(id, productDto, null); // Don't pass the image file again
 
     return Ok("Product successfully updated.");
 }
-
-     public static string GetImageUrl(string imageName)
-{
-    return $"https://yourdomain.com/images/{imageName}";
+    }
 }
-}
-}
-
-

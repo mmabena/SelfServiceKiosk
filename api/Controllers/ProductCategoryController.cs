@@ -3,9 +3,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using api.Data; 
-using api.Models; 
-using api.Dtos; 
+using api.Data;
+using api.Models;
+using api.Dtos;
 
 
 namespace api.Controllers

@@ -254,3 +254,7 @@ C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\refint\a
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.pdb
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.genruntimeconfig.cache
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\ref\api.dll
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\product-dashboard\package-lock.json
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\product-dashboard\package.json
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\product-dashboard\public\manifest.json
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\CloudinaryDotNet.dll

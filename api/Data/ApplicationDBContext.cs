@@ -24,8 +24,8 @@ namespace api.Data
         public DbSet<UserRole> UserRoles { get; set; }  // Add DbSet for UserRole
         public DbSet<Wallet> Wallets { get; set; }
 
-       protected override void OnModelCreating(ModelBuilder modelBuilder)
-       {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
             // Defining primary keys
             modelBuilder.Entity<Product>()
                 .HasKey(p => p.ProductId);
@@ -44,7 +44,7 @@ namespace api.Data
 
             modelBuilder.Entity<User>()
                 .HasKey(u => u.UserId);
-                
+
             modelBuilder.Entity<UserRole>()
                 .HasKey(ur => ur.UserRoleId);
 
@@ -115,7 +115,7 @@ namespace api.Data
 
                 new UserRole { UserRoleId = 1, RoleName = "User" },
                 new UserRole { UserRoleId = 2, RoleName = "SuperUser" }
-        
+
             );
 
             base.OnModelCreating(modelBuilder);
