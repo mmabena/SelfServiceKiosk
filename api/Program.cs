@@ -8,65 +8,67 @@ using System.Text;
 using api.Data;
 using api.Interfaces;
 using api.Repository;
-using Microsoft.Extensions.FileProviders;
-using System.IO;
-using CloudinaryDotNet;
 using api.Models;
+using CloudinaryDotNet;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ========== CONFIGURATION ==========
+var configuration = builder.Configuration;
 
-var cloudinarySettings = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
-
+// ========== CLOUDINARY CONFIGURATION ==========
+var cloudinarySettings = configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
 var account = new Account(
     cloudinarySettings.CloudName,
     cloudinarySettings.ApiKey,
     cloudinarySettings.ApiSecret
 );
-
-var cloudinary = new Cloudinary(account)
-{
-    Api = { Secure = true }
-};
-
+var cloudinary = new Cloudinary(account) { Api = { Secure = true } };
 builder.Services.AddSingleton(cloudinary);
-// Add services to the container
+
+// ========== SERVICES ==========
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Swagger
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Self Service Kiosk API", Version = "v1" });
-
-   options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-{
-    Name = "Authorization",
-    Type = SecuritySchemeType.Http, // ✅ Use Http instead of ApiKey for JWT Bearer
-    Scheme = "Bearer",
-    BearerFormat = "JWT",
-    In = ParameterLocation.Header,
-    Description = "Enter JWT token like this: Bearer YOUR_TOKEN_HERE"
-});
-
-options.AddSecurityRequirement(new OpenApiSecurityRequirement
-{
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
-        new OpenApiSecurityScheme
+        Title = "Self Service Kiosk API",
+        Version = "v1"
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter JWT token like this: Bearer YOUR_TOKEN_HERE"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
         {
-            Reference = new OpenApiReference
+            new OpenApiSecurityScheme
             {
-                Type = ReferenceType.SecurityScheme,
-                Id = "Bearer"
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "Bearer",
+                Name = "Bearer",
+                In = ParameterLocation.Header
             },
-            Scheme = "Bearer",
-            Name = "Bearer",
-            In = ParameterLocation.Header
-        },
-        Array.Empty<string>()
-    }
+            Array.Empty<string>()
+        }
+    });
 });
 
-});
-
+// ========== CORS ==========
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -75,19 +77,19 @@ builder.Services.AddCors(options =>
             .WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // required when using cookies or Authorization headers
+            .AllowCredentials();
     });
 });
 
-// DB Context
+// ========== DATABASE ==========
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"))
 );
 
-// Dependency Injection
+// ========== DEPENDENCY INJECTION ==========
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
-// JWT Authentication
+// ========== AUTHENTICATION ==========
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -99,18 +101,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidIssuer = configuration["Jwt:Issuer"],
+            ValidAudience = configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(configuration["Jwt:Key"])
+            )
         };
     });
 
+// ========== AUTHORIZATION ==========
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("RequireSuperUser", policy =>
         policy.RequireClaim(ClaimTypes.Role, "2"));
 });
 
+// ========== APP PIPELINE ==========
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -120,14 +126,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
-
 app.UseCors("AllowFrontend");
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

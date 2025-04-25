@@ -219,11 +219,9 @@ const handleAddProduct = async (e) => {
     available,
     quantity,
     categoryId,
-    productImage,  // Cloudinary URL or null
-    imageFile,     // File selected for upload
+    imageFile,
   } = productDetails;
 
-  // Check if all required fields are filled and if imageFile is selected when needed
   if (
     !productName ||
     !productDescription ||
@@ -233,46 +231,50 @@ const handleAddProduct = async (e) => {
     isNaN(quantity) ||
     quantity <= 0 ||
     isNaN(categoryId) ||
-    categoryId <= 0 ||
-    (productDetails.productImage === "yes" && !imageFile) // Ensure imageFile exists when required
+    categoryId <= 0
   ) {
-    setErrorMessage("Please fill all fields correctly, and upload an image if required.");
+    setErrorMessage("Please fill all fields correctly.");
     return;
   }
 
-  let formData = new FormData();
-
-  // Add product fields to form data
+  const formData = new FormData();
   formData.append('productName', productName);
   formData.append('productDescription', productDescription);
   formData.append('unitPrice', unitPrice);
   formData.append('available', available);
   formData.append('quantity', quantity);
   formData.append('categoryId', categoryId);
-  formData.append('productImage', productImage);  // This is sent as Cloudinary URL (optional)
 
-  // If the image is uploaded, include it in the form data
-  if (imageFile) {
-    formData.append('imageFile', imageFile);  // This is the file itself, not the Cloudinary URL
+  formData.append("productImage", imageFile ? "yes" : "");
+
+  // formData.append("ProductImage", imageFile ? imageFile : "");
+
+
+  if (imageFile && imageFile instanceof File) {
+    formData.append('imageFile', imageFile);
+  }
+
+  for (let pair of formData.entries()) {
+    console.log(`${pair[0]}:`, pair[1]);
   }
 
   try {
-    // Send the product data to the server with the image file (if any)
     const res = await axios.post("http://localhost:5219/api/product/addProduct", formData, {
       headers: {
-        'Authorization': `Bearer ${token}`, // Authorization header for secure access
-        'Content-Type': 'multipart/form-data', // Important for file uploads
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
       },
     });
 
     console.log("Product added:", res.data);
     alert("Product added successfully!");
-    clearForm(); // Optionally clear the form after successful submission
+    clearForm();
   } catch (err) {
-    console.error("Add product error:", err);
+    console.error("Add product error:", err.response?.data || err.message);
     setErrorMessage("Failed to add product.");
   }
 };
+
 
 
 
@@ -286,28 +288,28 @@ const handleUpdateProduct = async (e) => {
   }
 
   const {
-    productId=searchId,
+    productId = searchId,
     productName,
     productDescription,
     unitPrice,
     available,
     quantity,
     categoryId,
-    productImage,
-    imageFile, // Cloudinary URL or file
+    productImage, // Cloudinary URL or file
+    imageFile, // New image file to be uploaded (optional)
   } = productDetails;
 
   let formData = new FormData();
 
   // Add product fields to form data
-  formData.append('prdouctId', productId);
+  formData.append('productId', productId);
   formData.append('productName', productName);
   formData.append('productDescription', productDescription);
   formData.append('unitPrice', unitPrice);
   formData.append('available', available);
   formData.append('quantity', quantity);
   formData.append('categoryId', categoryId);
-  formData.append('productImage',productImage)
+  formData.append('productImage', productImage); // Include Cloudinary URL or current image data
 
   // If the image file exists, append it to the form data (it will be handled by backend)
   if (imageFile) {
@@ -334,6 +336,7 @@ const handleUpdateProduct = async (e) => {
     setErrorMessage("Failed to update product.");
   }
 };
+
 
 
   {
@@ -487,12 +490,12 @@ const handleUpdateProduct = async (e) => {
         ☰ Menu
       </button>
       <Sidebar
-        isLoggedIn={token !== null}
-        userRole={userDetails.role}
-        onMenuClick={handleMenuClick}
-        isOpen={isSidebarOpen} // <-- pass down
-        toggleSidebar={toggleSidebar} // <-- optional
-      />
+  isLoggedIn={token !== null} // Pass logged-in status
+  userRole={userDetails.role}  // Pass user role
+  onMenuClick={handleMenuClick} // Handle menu item click
+  isOpen={isSidebarOpen}  // Pass down isSidebarOpen to control sidebar visibility
+  setIsOpen={setIsSidebarOpen} // Pass setIsOpen to Sidebar to control the sidebar open/close state
+/>
           <LogoutButton onLogout={handleLogout} />
           {/* Landing Page Logic */}
           {dashboardTab === "landing" && <LandingPage />}
