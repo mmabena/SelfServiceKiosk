@@ -57,132 +57,45 @@ namespace api.Repository
 
 public async Task<Product> CreateAsync(Product productModel, IFormFile? imageFile)
 {
-    string? imageUrl = null;
-
-    // Only attempt image upload if an image file is provided
-    if (imageFile != null && imageFile.Length > 0)
+    // Don't reupload to Cloudinary, just use the passed ProductImage
+    if (string.IsNullOrEmpty(productModel.ProductImage))
     {
-        var uploadParams = new ImageUploadParams
-        {
-            File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
-            Folder = "ProductImages",
-            UseFilename = true,
-            UniqueFilename = true,
-            Overwrite = false
-        };
-
-        var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-
-        if (uploadResult.StatusCode == HttpStatusCode.OK)
-        {
-            imageUrl = uploadResult.SecureUrl.ToString();
-            Console.WriteLine("Image URL after upload: " + imageUrl); // Debugging image URL
-        }
-        else
-        {
-            throw new Exception("Image upload to Cloudinary failed.");
-        }
+        productModel.ProductImage = "https://example.com/default-image.jpg";
     }
 
-    // If no image was uploaded, assign a default placeholder image
-    if (string.IsNullOrEmpty(imageUrl))
-    {
-        imageUrl = "https://example.com/default-image.jpg"; // Use a placeholder if no image is uploaded
-    }
-
-    productModel.ProductImage = imageUrl; // Set the ProductImage URL
-
-    // Save the product to the database
     await _context.Products.AddAsync(productModel);
     await _context.SaveChangesAsync();
 
-    Console.WriteLine("Product saved with Image URL: " + productModel.ProductImage); // Log the image URL after saving
     return productModel;
 }
 
 
 
-        public async Task<Product?> UpdateAsync(int id, ProductDto productDto, IFormFile? imageFile = null)
-        {
-            var product = await _context.Products.FirstOrDefaultAsync(x => x.ProductId == id);
-            if (product == null)
-                return null;
+ public async Task<Product?> UpdateAsync(int id, ProductDto productDto)
+{
+    var product = await _context.Products.FirstOrDefaultAsync(x => x.ProductId == id);
+    if (product == null)
+        return null;
 
-            product.ProductName = productDto.ProductName;
-            product.ProductDescription = productDto.ProductDescription;
-            product.UnitPrice = productDto.UnitPrice;
-            product.Available = productDto.Available;
-            product.Quantity = productDto.Quantity;
-            product.CategoryId = productDto.CategoryId;
+    // Update product details
+    product.ProductName = productDto.ProductName;
+    product.ProductDescription = productDto.ProductDescription;
+    product.UnitPrice = productDto.UnitPrice;
+    product.Available = productDto.Available;
+    product.Quantity = productDto.Quantity;
+    product.CategoryId = productDto.CategoryId;
 
-            if (imageFile != null)
-            {
-                var imageUrl = await UploadImageOrDefault(imageFile);
-                product.ProductImage = imageUrl;
-            }
+    // Only update the image if a new URL is provided, otherwise keep the existing one
+    if (!string.IsNullOrEmpty(productDto.ProductImage))
+    {
+        product.ProductImage = productDto.ProductImage;
+    }
 
-            await _context.SaveChangesAsync();
-            return product;
-        }
+    await _context.SaveChangesAsync();
+    return product;
+}
 
-        private async Task<string> UploadImageOrDefault(IFormFile? imageFile)
-        {
-            // If no file is provided, return a default image URL
-            if (imageFile == null || imageFile.Length == 0)
-            {
-                _logger.LogWarning("No image file was provided for upload.");
-                return "https://res.cloudinary.com/djmafre5k/image/upload/v1714000000/default-product.jpg";  // Fallback image
-            }
 
-            // Upload the image to Cloudinary if a file is provided
-            var uploadResult = await UploadImageToCloudinary(imageFile);
-            return uploadResult?.SecureUrl.ToString() ?? "https://res.cloudinary.com/djmafre5k/image/upload/v1714000000/default-product.jpg";
-        }
-
-        private async Task<ImageUploadResult?> UploadImageToCloudinary(IFormFile imageFile)
-        {
-            try
-            {
-                if (imageFile == null || imageFile.Length == 0)
-                {
-                    _logger.LogWarning("No image file was provided for upload.");
-                    return null;
-                }
-
-                // Optional: Check content type
-                var validTypes = new[] { "image/jpeg", "image/png", "image/webp" };
-                if (!validTypes.Contains(imageFile.ContentType.ToLower()))
-                {
-                    _logger.LogWarning("Invalid image type: {ContentType}", imageFile.ContentType);
-                    return null;
-                }
-
-                await using var stream = imageFile.OpenReadStream();
-                var uploadParams = new ImageUploadParams
-                {
-                    File = new FileDescription(imageFile.FileName, stream),
-                    Folder = "ProductImages",
-                    UseFilename = true,
-                    UniqueFilename = true,
-                    Overwrite = false
-                };
-
-                var result = await _cloudinary.UploadAsync(uploadParams);
-
-                if (result.StatusCode != System.Net.HttpStatusCode.OK)
-                {
-                    _logger.LogError("Cloudinary upload failed. Status: {Status}, Error: {Error}",
-                        result.StatusCode, result.Error?.Message);
-                    return null;
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Exception occurred while uploading image to Cloudinary.");
-                return null;
-            }
         }
     }
-}
+

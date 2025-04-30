@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import '../LoginSignup.css';
-import logo from '../Self-Service-Kiosk-Logo/Self-Service-Kiosk-Logo.png';
+//import logo from '../Self-Service-Kiosk-Logo/Self-Service-Kiosk-Logo.png';  // Relative path to the image file
 
 const Sidebar = ({ onMenuClick, isOpen, setIsOpen }) => {
   const [openMenus, setOpenMenus] = useState({
@@ -15,26 +15,21 @@ const Sidebar = ({ onMenuClick, isOpen, setIsOpen }) => {
     }));
   };
 
-  // Close the entire sidebar and handle the menu item click
-  const handleMenuItemClick = (menu, action) => {
-    setIsOpen(false); // Close the sidebar when a menu item is clicked
-
-    // Close the specific menu after a click
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menu]: false
-    }));
-
-    // Call the action passed through props (onMenuClick) to handle the logic for the menu item
-    onMenuClick(action);
+  const handleItemClick = (tab) => {
+    onMenuClick(tab);
+    setIsOpen(false); // Close sidebar
   };
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <img src={logo} alt="Self-Service Kiosk Logo" className="sidebar-logo" />
+      <img
+        src="/images/logo_self.jpg"
+        alt="Logo"
+        className="sidebar-logo"
+      />
 
       <ul>
-        <li onClick={() => handleMenuItemClick('landing', 'landing')}>
+        <li onClick={() => handleItemClick('landing')}>
           <a href="#" className="menu-heading">Home</a>
         </li>
 
@@ -44,36 +39,35 @@ const Sidebar = ({ onMenuClick, isOpen, setIsOpen }) => {
           </span>
           {openMenus.purchase && (
             <ul>
-              <li onClick={() => handleMenuItemClick('purchase', 'all')}>
+              <li onClick={() => handleItemClick('all')}>
                 <a href="#">All Products</a>
               </li>
-              <li onClick={() => handleMenuItemClick('purchase', 'byCategory')}>
+              {/* <li onClick={() => handleItemClick('byCategory')}>
                 <a href="#">Search Product</a>
-              </li>
+              </li> */}
             </ul>
           )}
         </li>
 
-        {/* {userRole?.toLowerCase() === 'superuser' && ( */}
+        {/* You can conditionally render this block for specific roles if needed */}
         <li>
           <span onClick={() => toggleMenu('manage')} className="menu-heading">
             Product Management ▾
           </span>
           {openMenus.manage && (
             <ul>
-              <li onClick={() => handleMenuItemClick('manage', 'add')}>
+              <li onClick={() => handleItemClick('add')}>
                 <a href="#">Add Product</a>
               </li>
-              <li onClick={() => handleMenuItemClick('manage', 'update')}>
+              <li onClick={() => handleItemClick('update')}>
                 <a href="#">Update Product</a>
               </li>
-              <li onClick={() => handleMenuItemClick('manage', 'delete')}>
+              <li onClick={() => handleItemClick('delete')}>
                 <a href="#">Delete Product</a>
               </li>
             </ul>
           )}
         </li>
-        {/* )} */}
       </ul>
     </div>
   );

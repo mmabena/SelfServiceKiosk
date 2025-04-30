@@ -124,7 +124,7 @@ public async Task AddProduct_ValidData_AddsProductWithCloudinaryImageUrl()
                  return product;
              });
 
-    var result = await _controller.AddProduct(dto, mockFile.Object);
+    var result = await _controller.AddProduct(dto);
 
     var createdResult = Assert.IsType<CreatedAtActionResult>(result);
     var product = Assert.IsType<ProductDto>(createdResult.Value);
@@ -143,24 +143,19 @@ public async Task UpdateProduct_ValidId_UpdatesDataWithCloudinaryImageUrl()
         UnitPrice = 11.50m,
         Available = "Yes",
         Quantity = 120,
-        CategoryId = 1000
+        CategoryId = 1000,
+        ProductImage = "https://res.cloudinary.com/demo/image/upload/updated.jpg"
     };
 
-    var mockFile = new Mock<IFormFile>();
-    mockFile.Setup(f => f.FileName).Returns("chips_updated.jpg");
-    mockFile.Setup(f => f.Length).Returns(100);
-    mockFile.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(new byte[100]));
-
-    _mockRepo.Setup(r => r.GetByIdAsync(1001)).ReturnsAsync(_context.Products.First(p => p.ProductId == 1001));
-    _mockRepo.Setup(r => r.UpdateAsync(1001, dto, mockFile.Object))
-             .ReturnsAsync((int id, ProductDto productDto, IFormFile file) =>
+    _mockRepo.Setup(r => r.UpdateAsync(1001, dto))
+             .ReturnsAsync((int id, ProductDto productDto) =>
              {
                  var product = _context.Products.First(p => p.ProductId == id);
-                 product.ProductImage = "https://res.cloudinary.com/demo/image/upload/updated.jpg";
+                 product.ProductImage = productDto.ProductImage;
                  return product;
              });
 
-    var result = await _controller.UpdateProduct(1001, dto, mockFile.Object);
+    var result = await _controller.UpdateProduct(1001, dto);
 
     var okResult = Assert.IsType<OkObjectResult>(result);
     Assert.Equal("Product successfully updated.", okResult.Value);

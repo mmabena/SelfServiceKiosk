@@ -129,17 +129,68 @@ namespace api.Controllers
         // POST: api/product/addProduct
 [Authorize(Policy = "RequireSuperUser")]
 [HttpPost("addProduct")]
-public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto, IFormFile? imageFile)
+public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto)
 {
-    // Validation
+    // Manual validation (in addition to DataAnnotations)
     if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
         return BadRequest("Invalid product name.");
+
     if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
         return BadRequest("Invalid description.");
+
     if (productDto.UnitPrice <= 0)
-        return BadRequest("Price must be positive.");
+        return BadRequest("Unit price must be greater than zero.");
+
     if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
         return BadRequest("Invalid availability.");
+
+    if (productDto.Quantity == null || productDto.Quantity < 0)
+        return BadRequest("Quantity cannot be negative or null.");
+
+    if (productDto.CategoryId <= 0)
+        return BadRequest("Invalid category ID.");
+
+    var categoryExists = await _context.ProductCategories
+        .AnyAsync(c => c.CategoryId == productDto.CategoryId);
+    if (!categoryExists)
+        return BadRequest("The specified category does not exist.");
+
+    var product = new Product
+    {
+        ProductName = productDto.ProductName,
+        ProductDescription = productDto.ProductDescription,
+        UnitPrice = productDto.UnitPrice,
+        Available = productDto.Available,
+        Quantity = productDto.Quantity.Value,
+        CategoryId = productDto.CategoryId,
+        ProductImage = !string.IsNullOrEmpty(productDto.ProductImage)
+            ? productDto.ProductImage
+            : "https://example.com/default-image.jpg"
+    };
+
+    var createdProduct = await _productRepo.CreateAsync(product, null);
+    var productResult = createdProduct.ToProductDto();
+    return CreatedAtAction("GetById", new { id = productResult.ProductId }, productResult);
+}
+
+        // PUT: api/product/{id}
+[Authorize(Policy = "RequireSuperUser")]
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto)
+{
+    // Validation (same as AddProduct)
+    if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
+        return BadRequest("Invalid product name.");
+
+    if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
+        return BadRequest("Invalid description.");
+
+    if (productDto.UnitPrice <= 0)
+        return BadRequest("Price must be positive.");
+
+    if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
+        return BadRequest("Invalid availability.");
+
     if (productDto.Quantity < 0)
         return BadRequest("Quantity cannot be negative.");
 
@@ -147,82 +198,31 @@ public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto, IF
     if (!categoryExists)
         return BadRequest("The specified category does not exist.");
 
-    // Create new product object
-    var product = new Product
+    // Check if product exists before updating
+    var existingProduct = await _productRepo.GetByIdAsync(id);
+    if (existingProduct == null)
+        return NotFound("Product not found.");
+
+    // Update the product details
+    existingProduct.ProductName = productDto.ProductName;
+    existingProduct.ProductDescription = productDto.ProductDescription;
+    existingProduct.UnitPrice = productDto.UnitPrice;
+    existingProduct.Available = productDto.Available;
+    existingProduct.Quantity = productDto.Quantity;
+    existingProduct.CategoryId = productDto.CategoryId;
+
+    // If a new image is provided (Cloudinary URL), update it
+    if (!string.IsNullOrEmpty(productDto.ProductImage))
     {
-        ProductName = productDto.ProductName,
-        ProductDescription = productDto.ProductDescription,
-        UnitPrice = productDto.UnitPrice,
-        Available = productDto.Available,
-        Quantity = productDto.Quantity,
-        CategoryId = productDto.CategoryId,
-    };
-
-    // Handle image upload if an image file is provided
-    var imageUrl = await UploadImageOrDefault(imageFile);
-   // product.ProductImage = imageUrl;
-
-    // Save product to the database
-    var createdProduct = await _productRepo.CreateAsync(product, imageFile);
-
-    // Return response
-    var productResult = createdProduct.ToProductDto();
-    return CreatedAtAction("GetById", new { id = productResult.ProductId }, productResult);
-}
-private async Task<string> UploadImageOrDefault(IFormFile? imageFile)
-{
-    if (imageFile == null || imageFile.Length == 0)
-    {
-        return string.Empty;  // Return empty if no image is uploaded
+        existingProduct.ProductImage = productDto.ProductImage; // New image URL
     }
 
-    // Upload image to Cloudinary (you can adjust this logic to match your requirements)
-    var uploadParams = new ImageUploadParams
-    {
-        File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
-        Folder = "ProductImages",
-        UseFilename = true,
-        UniqueFilename = true,
-        Overwrite = false
-    };
+    // Save the changes
+    await _context.SaveChangesAsync();
 
-    var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-
-    // If upload is successful, return the secure URL of the image
-    if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
-    {
-        return uploadResult.SecureUrl.ToString();
-    }
-
-    return string.Empty;  // Return empty if the upload fails
+    return Ok(new { message = "Product successfully updated.", product = existingProduct });
 }
-        // PUT: api/product/{id}
-        [Authorize(Policy = "RequireSuperUser")]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto, IFormFile? imageFile)
-        {
-            // Validation (same as AddProduct)
-            if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
-                return BadRequest("Invalid product name.");
-            if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
-                return BadRequest("Invalid description.");
-            if (productDto.UnitPrice <= 0)
-                return BadRequest("Price must be positive.");
-            if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
-                return BadRequest("Invalid availability.");
-            if (productDto.Quantity < 0)
-                return BadRequest("Quantity cannot be negative.");
 
-            var categoryExists = await _context.ProductCategories.AnyAsync(c => c.CategoryId == productDto.CategoryId);
-            if (!categoryExists)
-                return BadRequest("The specified category does not exist.");
 
-            var updatedProduct = await _productRepo.UpdateAsync(id, productDto, imageFile);
-
-            if (updatedProduct == null)
-                return NotFound("Product not found.");
-
-            return Ok("Product successfully updated.");
-        }
     }
 }

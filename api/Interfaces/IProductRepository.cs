@@ -31,7 +31,7 @@ namespace api.Interfaces
         /// <param name="id">The product ID to update.</param>
         /// <param name="productDto">DTO containing updated product data.</param>
         /// <param name="imageFile">Optional image file to upload.</param>
-        Task<Product?> UpdateAsync(int id, ProductDto productDto, IFormFile? imageFile = null);
+        Task<Product?> UpdateAsync(int id, ProductDto productDto);
 
         /// <summary>
         /// Deletes a product by its ID.
