@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema; // Add this for the Column attribute
-using System.Linq;
-using System.Threading.Tasks;
+
+using System.ComponentModel.DataAnnotations.Schema; 
 using api.Dtos;
 
 namespace api.Models
@@ -11,8 +8,8 @@ namespace api.Models
 
 public class Product
 {
-    public int ProductId { get; set; }  // Primary Key
-    public int CategoryId { get; set; }//foreign key
+    public int ProductId { get; set; }  
+    public int CategoryId { get; set; }
         public string ProductName { get; set; }
         public string ProductDescription { get; set; }
         
@@ -21,10 +18,12 @@ public class Product
         public string ProductImage { get; set; }
         public decimal UnitPrice { get; set; }
         public int? Quantity { get; set; }
+        public bool IsActive { get; set; } = true;
+
         
         
-        public ProductCategory ProductCategories { get; set; } // Navigation Property
-          public ICollection<CartProduct> CartProducts { get; set; } // Navigation property for CartProducts
+        public ProductCategory ProductCategories { get; set; } 
+          public ICollection<CartProduct> CartProducts { get; set; } 
           public ProductDto ToProductDto()
           {
             return new ProductDto
@@ -46,12 +45,3 @@ public class Product
 }
 
 
-//CREATE TABLE Products (
-  //  ProductId INT IDENTITY(1,1) PRIMARY KEY, -- This defines the ProductId as the primary key and auto-increments
-    //ProductName VARCHAR(50),
-    //ProductDescription VARCHAR(50),
-    //UnitPrice MONEY,
-    //Avaiable VARCHAR(50),
-    //Quantity INT NULL,
-    //ProductImage VARCHAR(50)
-//);

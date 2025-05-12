@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom"; // <-- Import useNavigate
 import "./LoginSignup.css";
 import Sidebar from "./components/SideBar";
 import LogoutButton from "./components/LogoutButton";
+import Wallet from "./components/Wallet"; 
+import ManageProducts from "./components/ManageProducts";
+
+
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -11,16 +15,34 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("login");
   const [products, setProducts] = useState([]);
   const [dashboardTab, setDashboardTab] = useState("landing");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showCart, setShowCart] = useState(false);
+
+  localStorage.setItem("user", JSON.stringify({ id: 3, name: "Mhlaba" }));
+
+
 
   // const toggleCart = () => {
   //   setShowCart((prev) => !prev);
   // };
 
-  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  // const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const [currentPage, setCurrentPage] = useState(1);
+const productsPerPage = 3;
 
-  const centerTabs = ["landing", "add", "byCategory", "update"];
+// Calculate indexes
+const indexOfLastProduct = currentPage * productsPerPage;
+const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+
+// Total pages
+const totalPages = Math.ceil(products.length / productsPerPage);
+
+  const [walletBalance, setWalletBalance] = useState(0.0); 
+
+  const centerTabs = ["landing", "add", "byCategory", "update","wallet","manageproducts"];
+
+ 
 
   const backgroundStyle = {
     backgroundImage: "url(/images/background_image.jpg)",
@@ -37,91 +59,103 @@ const App = () => {
       : "flex-start",
   };
 
-  const LandingPage = () => {
-    return (
-      <div className="landing-wrapper">
-        <div className="landing-card">
-          <img
-            src="/images/Self-Service-Kiosk-Logo.png"
-            alt="Logo"
-            className="landing-logo"
-          />
-          <h1>Welcome to the Self-Service Kiosk</h1>
-          <p>Please choose an option from the menu to get started.</p>
-        </div>
-      </div>
-    );
-  };
+ 
 
-  const cartItems = [];
+  
+  let cartItems = {}; // Key: productId, Value: { product, quantity }
 
   function handleAddToCart(product) {
-    cartItems.push(product);
-
-    // Update cart count
-    const cartCountElement = document.querySelector(".cart-count");
-    if (cartCountElement) {
-      cartCountElement.textContent = cartItems.length;
+    const id = product.productId;
+  
+    if (cartItems[id]) {
+      cartItems[id].quantity += 1;
+    } else {
+      cartItems[id] = { product, quantity: 1 };
     }
-
-    // Update cart list in UI
+  
     updateCartUI();
-
     alert(`Added "${product.productName}" to cart!`);
   }
-
+  
   function updateCartUI() {
     const cartList = document.querySelector(".cart-list");
     const totalPriceElement = document.getElementById("total-price");
-
+  
     if (!cartList || !totalPriceElement) return;
-
+  
     cartList.innerHTML = ""; // Clear previous items
     let totalPrice = 0;
-
-    cartItems.forEach((item, index) => {
+    let totalItemCount = 0;
+  
+    Object.values(cartItems).forEach(({ product, quantity }) => {
       const li = document.createElement("li");
       li.className = "cart-item";
-    
+  
+      const unitPrice = product.unitPrice || 0;
+      const subtotal = unitPrice * quantity;
+      totalPrice += subtotal;
+      totalItemCount += quantity;
+  
       li.innerHTML = `
-        <img src="${item.productImage || ""}" alt="${item.productName}" class="cart-product-image" />
+      <div class="cart-image-wrapper">
+  <img src="${product.productImage || ""}" alt="${product.productName}" class="cart-product-image" />
+  <span class="quantity-badge">${quantity}</span>
+</div>
+
         <div class="cart-product-details">
-          <span class="cart-product-name">${item.productName}</span>
-          <span class="cart-product-price">R${(item.unitPrice || 0).toFixed(2)}</span>
-          <button class="remove-item-btn" data-index="${index}">Remove</button>
+          <span class="cart-product-name">${product.productName}</span>
+          <span class="cart-product-price">R${unitPrice.toFixed(2)} </span>
+          <div class="cart-quantity-controls">
+            <button class="decrease-btn" data-id="${product.productId}">−</button>
+            <span class="quantity">${quantity}</span>
+            <button class="increase-btn" data-id="${product.productId}">+</button>
+          </div>
+          <button class="remove-item-btn" data-id="${product.productId}">Remove</button>
         </div>
       `;
-    
-      cartList.appendChild(li);
-      totalPrice += item.unitPrice || 0;
-      // Bind the click handler manually after HTML injection
-      li.querySelector(".remove-item-btn").addEventListener("click", () => removeItemFromCart(index));
-   
-    
-
   
-      
+      cartList.appendChild(li);
     });
   
     totalPriceElement.textContent = `R${totalPrice.toFixed(2)}`;
+    const cartCountElement = document.querySelector(".cart-count");
+    if (cartCountElement) cartCountElement.textContent = totalItemCount;
+  
+    // Bind "+" and "−" buttons
+    cartList.querySelectorAll(".increase-btn").forEach((btn) => {
+      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, 1));
+    });
+    cartList.querySelectorAll(".decrease-btn").forEach((btn) => {
+      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, -1));
+    });
+    cartList.querySelectorAll(".remove-item-btn").forEach((btn) => {
+      btn.addEventListener("click", () => removeItemFromCart(btn.dataset.id));
+    });
   }
   
-  function removeItemFromCart(index) {
-    cartItems.splice(index, 1); // Remove the item
-
-    // Update the cart count
-    const cartCountElement = document.querySelector(".cart-count");
-    if (cartCountElement) {
-      cartCountElement.textContent = cartItems.length;
+  function changeItemQuantity(productId, delta) {
+    const item = cartItems[productId];
+    if (!item) return;
+  
+    item.quantity += delta;
+  
+    if (item.quantity <= 0) {
+      delete cartItems[productId];
     }
-
+  
     updateCartUI();
   }
-
+  
+  function removeItemFromCart(productId) {
+    delete cartItems[productId];
+    updateCartUI();
+  }
+  
   function toggleCart() {
     const cartBox = document.getElementById("cart-items");
     cartBox?.classList.toggle("hidden");
   }
+  
 
   const [productDetails, setProductDetails] = useState({
     productName: "",
@@ -133,10 +167,46 @@ const App = () => {
     productImage: "no", // "yes" or "no"
     imageFile: null, // actual uploaded image file
   });
+  // const [searchQuery, setSearchQuery] = useState("");
+
+  // const handleSearchChange = (query) => {
+  //   setSearchQuery(query);
+  //   filterProducts(query);
+  // };
+
+  // const filterProducts = (query) => {
+  //   const lowerCaseQuery = query.toLowerCase();
+
+  //   const filtered = allProducts.filter((product) =>
+  //     product.name.toLowerCase().includes(lowerCaseQuery)
+  //   );
+
+  //   setDisplayedProducts(filtered);
+  // };
 
   const [searchId, setSearchId] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [categories, setCategories] = useState([]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get("http://localhost:5219/api/productcategory");
+
+      // Ensure it's an array
+      if (Array.isArray(res.data)) {
+        setCategories(res.data); // categories will now be an array of objects
+      } else {
+        console.error("Expected an array but got:", res.data);
+      }
+    } catch (err) {
+      console.error("Error fetching categories", err);
+    }
+  };
+  const categoryMap = categories.reduce((map, cat) => {
+    map[cat.categoryId] = cat.categoryName;
+    return map;
+  }, {});
 
   const [loginDetails, setLoginDetails] = useState({
     username: "",
@@ -156,11 +226,12 @@ const App = () => {
   const navigate = useNavigate(); // <-- Initialize the navigate function
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.clear();
     setIsLoggedIn(false);
     setToken(null);
-    navigate("/login"); // or wherever your login route is
+    navigate("/login");
   };
+  
   useEffect(() => {
     const validateToken = async () => {
       const savedToken = localStorage.getItem("token");
@@ -206,9 +277,9 @@ const App = () => {
 
   useEffect(() => {
     if (isLoggedIn) {
-      navigate("/products");
+      setActiveTab("all");
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn]);
 
   const fetchAllProducts = async () => {
     try {
@@ -373,72 +444,67 @@ const App = () => {
     }
   };
 
-  const handleUpdateProduct = async (e) => {
-    e.preventDefault();
-
-    if (!searchId || isNaN(searchId)) {
-      setErrorMessage("Please enter a valid Product ID.");
-      return;
-    }
-
-    const {
-      productId = searchId,
-      productName,
-      productDescription,
-      unitPrice,
-      available,
-      quantity,
-      categoryId,
-      imageFile, // This should already be a Cloudinary URL
-    } = productDetails;
-
-    if (
-      !productName ||
-      !productDescription ||
-      isNaN(unitPrice) ||
-      unitPrice <= 0 ||
-      !available ||
-      isNaN(quantity) ||
-      quantity < 0 ||
-      isNaN(categoryId) ||
-      categoryId <= 0 ||
-      !imageFile // Expecting Cloudinary URL from your upload logic
-    ) {
-      setErrorMessage("Please fill all fields correctly, including image.");
-      return;
-    }
-
-    console.log("ImageFile (Cloudinary URL):", imageFile);
-
-    const formData = new FormData();
-    formData.append("productName", productName);
-    formData.append("productDescription", productDescription);
-    formData.append("unitPrice", unitPrice);
-    formData.append("available", available);
-    formData.append("quantity", quantity);
-    formData.append("categoryId", categoryId);
-    formData.append("productImage", productDetails.imageFile); // this should be the Cloudinary URL
-
-    try {
-      const res = await axios.put(
-        `http://localhost:5219/api/product/${searchId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      console.log("ImageFile (Cloudinary URL):", imageFile);
-      console.log("Product updated:", res.data);
-      alert("Product updated successfully!");
-      clearForm();
-    } catch (err) {
-      console.error("Update product error:", err.response?.data || err.message);
-      setErrorMessage("Failed to update product.");
-    }
-  };
+  // const handleUpdateProduct = async (productId) => {
+  //   if (!productId || isNaN(productId)) {
+  //     setErrorMessage("Please enter a valid Product ID.");
+  //     return;
+  //   }
+  
+  //   const {
+  //     productName,
+  //     productDescription,
+  //     unitPrice,
+  //     available,
+  //     quantity,
+  //     categoryId,
+  //     imageFile, // This should already be a Cloudinary URL
+  //   } = productDetails;
+  
+  //   if (
+  //     !productName ||
+  //     !productDescription ||
+  //     isNaN(unitPrice) ||
+  //     unitPrice <= 0 ||
+  //     !available ||
+  //     isNaN(quantity) ||
+  //     quantity < 0 ||
+  //     isNaN(categoryId) ||
+  //     categoryId <= 0 ||
+  //     !imageFile
+  //   ) {
+  //     setErrorMessage("Please fill all fields correctly, including image.");
+  //     return;
+  //   }
+  
+  //   const formData = new FormData();
+  //   formData.append("productName", productName);
+  //   formData.append("productDescription", productDescription);
+  //   formData.append("unitPrice", unitPrice);
+  //   formData.append("available", available);
+  //   formData.append("quantity", quantity);
+  //   formData.append("categoryId", categoryId);
+  //   formData.append("productImage", imageFile);
+  
+  //   try {
+  //     const res = await axios.put(
+  //       `http://localhost:5219/api/product/${productId}`,
+  //       formData,
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //           "Content-Type": "multipart/form-data",
+  //         },
+  //       }
+  //     );
+  //     console.log("Product updated:", res.data);
+  //     alert("Product updated successfully!");
+  //     clearForm();
+  //   } catch (err) {
+  //     console.error("Update product error:", err.response?.data || err.message);
+  //     setErrorMessage("Failed to update product.");
+  //   }
+  // };
+  
 
   {
     /* logic for deleting a product via product id and name as well as a prompt to make sure the user wants to delete the product*/
@@ -517,7 +583,7 @@ const App = () => {
         alert("Login successful");
 
         // After successful login, navigate to the products page
-        setDashboardTab("landing"); // <- Show the Landing Page
+        setDashboardTab("all"); // <- Show the Landing Page
       } else {
         setErrorMessage("Login failed: No token returned.");
       }
@@ -544,24 +610,38 @@ const App = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
+      console.log("Submitting registration details:", registerDetails);
+
       await axios.post(
         "http://localhost:5219/api/user/register",
         registerDetails
       );
+
       alert("Registration successful!");
       setActiveTab("login"); // Switch to login tab on successful registration
     } catch (error) {
+      console.error(
+        "Registration error:",
+        error.response?.data || error.message
+      );
+
       setErrorMessage("Error registering.");
       setRegisterDetails({
         username: "",
-        name: "",
-        lastname: "",
+        firstName: "",
+        lastName: "",
         password: "",
         email: "",
         role: "",
       });
     }
   };
+  useEffect(() => {
+    if (activeTab === "manageproducts") {
+      fetchCategories(); // <-- Fetch only when needed
+      fetchProducts(); // <-- Optional: also re-fetch products if needed
+    }
+  }, [activeTab]);
   {
     /* logic to clear any output when the user chooses a different page/tab as well as ensuring for search that no products show until the search input has been returned*/
   }
@@ -587,10 +667,6 @@ const App = () => {
         {/* Show Sidebar and LogoutButton ONLY when logged in */}
         {isLoggedIn && (
           <>
-            <button className="sidebar-toggle" onClick={toggleSidebar}>
-              ☰ Menu
-            </button>
-
             <Sidebar
               isLoggedIn={token !== null} // Pass logged-in status
               userRole={userDetails.role} // Pass user role
@@ -598,14 +674,25 @@ const App = () => {
               isOpen={isSidebarOpen} // Pass down isSidebarOpen to control sidebar visibility
               setIsOpen={setIsSidebarOpen} // Pass setIsOpen to Sidebar to control the sidebar open/close state
             />
+              {/* <Routes>
+          <Route
+            path="/manageproducts"
+            element={<ManageProducts />}  // Directly render ManageProducts here
+          />
+        </Routes> */}
 
             <div class="cart-container">
+              <button className="cart-button wallet-button">
+                💰 R{walletBalance.toFixed(2)}
+              </button>
+            
+
               <button className="cart-button" onClick={toggleCart}>
                 🛒 <span class="cart-count">0</span>
               </button>
             </div>
 
-            <div id="cart-items" class="cart-items hidden">
+            <div id="cart-items" className="cart-items hidden">
               <h3>Your Cart</h3>
               <ul class="cart-list"></ul>
               <div class="cart-total">
@@ -625,8 +712,11 @@ const App = () => {
             )}
 
             <LogoutButton onLogout={handleLogout} />
-            {/* Landing Page Logic */}
-            {dashboardTab === "landing" && <LandingPage />}
+          
+            {dashboardTab === "wallet" && <Wallet />}
+            {dashboardTab === "manageproducts" && <ManageProducts />}
+
+
           </>
         )}
         {!isLoggedIn ? (
@@ -727,9 +817,9 @@ const App = () => {
                     <div className="field">
                       <input
                         type="text"
-                        name="name"
-                        placeholder="Name"
-                        value={registerDetails.name}
+                        name="firstName"
+                        placeholder="First Name"
+                        value={registerDetails.firstName}
                         onChange={handleRegisterChange}
                         required
                       />
@@ -737,9 +827,9 @@ const App = () => {
                     <div className="field">
                       <input
                         type="text"
-                        name="lastname"
-                        placeholder="Lastname"
-                        value={registerDetails.lastname}
+                        name="lastName"
+                        placeholder="Last Name"
+                        value={registerDetails.lastName}
                         onChange={handleRegisterChange}
                         required
                       />
@@ -771,6 +861,7 @@ const App = () => {
                         onChange={handleRegisterChange}
                         required
                       >
+                        <option value="">Select Role</option>
                         <option value="User">User</option>
                         <option value="Superuser">Superuser</option>
                       </select>
@@ -788,16 +879,6 @@ const App = () => {
         ) : (
           <>
             {" "}
-            {/* logic for displaying different tabs/buttons for the user to choose from*/}
-            {/* <h1 className="content-heading">Product Management</h1>
-          <div className="tabs">
-            <button onClick={() => setActiveTab("all")}>All Products</button>
-            <button onClick={() => setActiveTab("byId")}>Search by ID</button>
-            <button onClick={() => setActiveTab("byCategory")}>Search by Category</button>
-            <button onClick={() => setActiveTab("add")}>Add Product</button>
-            <button onClick={() => setActiveTab("update")}>Update Product</button>
-            <button onClick={() => setActiveTab("delete")}>Delete Product</button>
-          </div> */}
             {errorMessage && <p className="error-message">{errorMessage}</p>}
             {/* logic for searching a product via the product id*/}
             <div className="content">
@@ -829,17 +910,27 @@ const App = () => {
                 <>
                   {/* Category Buttons */}
                   {activeTab === "all" && (
-                    <div className="category-buttons">
-                      <button onClick={fetchProducts}>All</button>
-                      <button onClick={() => fetchProductsByCategory("Fruit")}>
-                        Fruit
-                      </button>
-                      <button onClick={() => fetchProductsByCategory("Drinks")}>
-                        Drinks
-                      </button>
-                      <button onClick={() => fetchProductsByCategory("Snacks")}>
-                        Snacks
-                      </button>
+                    <div className="category-toolbar">
+                      <div className="category-buttons">
+                        <button onClick={fetchProducts}>All</button>
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.categoryId}
+                            onClick={() =>
+                              fetchProductsByCategory(cat.categoryName)
+                            }
+                          >
+                            {cat.categoryName}
+                          </button>
+                        ))}
+                      </div>
+                      {/* <input
+                type="text"
+                className="category-search"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              /> */}
                     </div>
                   )}
 
@@ -863,7 +954,7 @@ const App = () => {
                               <strong>
                                 R{parseFloat(p.unitPrice).toFixed(2)}
                               </strong>{" "}
-                              | {p.available} | Qty: {p.quantity}
+                              | Qty: {p.quantity} |
                             </p>
                             <button
                               className="add-to-cart-btn"
@@ -878,6 +969,82 @@ const App = () => {
                   </div>
                 </>
               )}
+              {/*Logic for product management tab/layout*/}
+              {/* {activeTab === "manage" && (
+                <div className="product-table-container">
+                  <h2>All Products</h2>
+
+                  {errorMessage && (
+                    <p style={{ color: "red" }}>{errorMessage}</p>
+                  )}
+
+                  <div className="table-wrapper">
+                    <table className="product-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+
+                          <th>Category</th>
+                          <th>Description</th>
+                          <th>Image URL</th>
+                          <th>Available</th>
+                          <th>Price</th>
+                          <th>Quantity</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentProducts.map((product) => (
+                          <tr key={product.productId}>
+                            <td>{product.productName}</td>
+
+                            <td>
+                              {categoryMap[product.categoryId] || "Unknown"}
+                            </td>
+                            <td>{product.productDescription}</td>
+                            <td>{product.productImage}</td>
+                            <td>{product.available}</td>
+                            <td>{product.unitPrice}</td>
+                            <td>{product.quantity}</td>
+                            <td>
+                              <button
+                                onClick={() =>
+                                  handleUpdateProduct(product.productId)
+                                }
+                              >
+                                Update
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div> */}
+
+                  {/* Pagination Controls */}
+                  {/* <div className="pagination">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )} */}
 
               {/* logic for adding a product referencing the product form*/}
               {activeTab === "add" && (
@@ -990,7 +1157,7 @@ const App = () => {
                     </button>
                   </div>
 
-                  <form onSubmit={handleUpdateProduct} className="product-form">
+                  {/* <form onSubmit={handleUpdateProduct} className="product-form">
                     <input
                       type="text"
                       name="productName"
@@ -1036,9 +1203,12 @@ const App = () => {
                       value={productDetails.categoryId}
                       onChange={handleProductInputChange}
                     >
-                      <option value="1">Category 1</option>
-                      <option value="2">Category 2</option>
-                      <option value="3">Category 3</option>
+                      <option value="">Select a category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.categoryId} value={cat.categoryId}>
+                          {cat.categoryName}
+                        </option>
+                      ))}
                     </select>
 
                     <select
@@ -1061,7 +1231,7 @@ const App = () => {
                     )}
 
                     <button type="submit">Update Product</button>
-                  </form>
+                  </form> */}
                 </>
               )}
 

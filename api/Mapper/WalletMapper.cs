@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 using api.Dtos;
 using api.Models;
+using Microsoft.Identity.Client;
 
 namespace api.Mapper
 {
@@ -16,8 +17,9 @@ namespace api.Mapper
             {
                 UserId = wallet.UserId,
                 Balance = wallet.Balance,
-                User = wallet.Users?.ToUserDto() // If you want to include user information, map it using ToUserDto
+           
             };
+            
         }
     }
 }

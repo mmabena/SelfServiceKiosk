@@ -1,72 +1,64 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';  // Import useNavigate from react-router-dom
 import '../LoginSignup.css';
-//import logo from '../Self-Service-Kiosk-Logo/Self-Service-Kiosk-Logo.png';  // Relative path to the image file
 
-const Sidebar = ({ onMenuClick, isOpen, setIsOpen }) => {
+const Sidebar = ({ onMenuClick }) => {
   const [openMenus, setOpenMenus] = useState({
-    purchase: false,
-    manage: false
+    purchase: true,
+    manage: true
   });
 
-  const toggleMenu = (menu) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menu]: !prev[menu],
-    }));
-  };
+  const navigate = useNavigate();  // Initialize navigate function
 
+  // Handle item click and navigation
   const handleItemClick = (tab) => {
     onMenuClick(tab);
-    setIsOpen(false); // Close sidebar
+
+    // Navigate to different pages based on the tab clicked
+    if (tab === "manageproducts") {
+      navigate('/manageproducts');  // Navigate to the Manage Products page
+    } else if (tab === "wallet") {
+      navigate('/wallet');  // Navigate to the Wallet page
+    } else if (tab === "add") {
+      navigate('/add');  // Navigate to another page, such as Report
+    }else if (tab === "all") {
+      navigate('/all'); 
+    }
   };
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <img
-        src="/images/logo_self.jpg"
-        alt="Logo"
-        className="sidebar-logo"
-      />
+    <div className="sidebar fixed-open">
+      <img src="/images/logo_self.jpg" alt="Logo" className="sidebar-logo" />
 
       <ul>
-        <li onClick={() => handleItemClick('landing')}>
-          <a href="#" className="menu-heading">Home</a>
-        </li>
-
         <li>
-          <span onClick={() => toggleMenu('purchase')} className="menu-heading">
-            Purchase Products ▾
+          <span className="menu-heading" onClick={() => handleItemClick("all")}>
+            Purchase Products
           </span>
-          {openMenus.purchase && (
-            <ul>
-              <li onClick={() => handleItemClick('all')}>
-                <a href="#">All Products</a>
-              </li>
-              {/* <li onClick={() => handleItemClick('byCategory')}>
-                <a href="#">Search Product</a>
-              </li> */}
-            </ul>
-          )}
         </li>
-
-        {/* You can conditionally render this block for specific roles if needed */}
         <li>
-          <span onClick={() => toggleMenu('manage')} className="menu-heading">
-            Product Management ▾
+          <span
+            className="menu-heading"
+            onClick={() => handleItemClick("manageproducts")}
+          >
+            Product Management
           </span>
-          {openMenus.manage && (
-            <ul>
-              <li onClick={() => handleItemClick('add')}>
-                <a href="#">Add Product</a>
-              </li>
-              <li onClick={() => handleItemClick('update')}>
-                <a href="#">Update Product</a>
-              </li>
-              <li onClick={() => handleItemClick('delete')}>
-                <a href="#">Delete Product</a>
-              </li>
-            </ul>
-          )}
+        </li>
+        <li>
+          <span
+            className="menu-heading"
+            onClick={() => handleItemClick("wallet")}
+          >
+            Wallet
+          </span>
+        </li>
+        <li>
+          <span
+            className="menu-heading"
+            onClick={() => handleItemClick("add")}
+          >
+            Report
+          </span>
         </li>
       </ul>
     </div>

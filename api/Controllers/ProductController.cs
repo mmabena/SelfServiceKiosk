@@ -1,19 +1,13 @@
-using System.Linq;
-using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Models;
 using api.Dtos;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
-using System.IO;
-using System;
 using api.Interfaces;
 using CloudinaryDotNet;
-using CloudinaryDotNet.Actions;
-using api.Repository;
+
 
 namespace api.Controllers
 {
@@ -31,6 +25,13 @@ namespace api.Controllers
             _productRepo = productRepo;
             _cloudinary = cloudinary;
         }
+//         [HttpGet]
+// public IActionResult GetActiveProducts()
+// {
+//     var products = _context.Products.Where(p => p.IsActive).ToList();
+//     return Ok(products);
+// }
+
 
         // GET: api/product
         [HttpGet]
