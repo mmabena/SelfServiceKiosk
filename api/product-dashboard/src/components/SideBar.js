@@ -28,7 +28,7 @@ const Sidebar = ({ onMenuClick }) => {
 
   return (
     <div className="sidebar fixed-open">
-      <img src="/images/logo_self.jpg" alt="Logo" className="sidebar-logo" />
+      <img src="/images/Logo_Option_2.jpg" alt="Logo" className="sidebar-logo" />
 
       <ul>
         <li>

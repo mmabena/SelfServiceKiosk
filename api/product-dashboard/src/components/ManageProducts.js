@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "../LoginSignup.css";
+import { ToastContainer, toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
+
 
 const ManageProducts = () => {
   const [products, setProducts] = useState([]);
@@ -14,6 +17,7 @@ const ManageProducts = () => {
     quantity: "",
     categoryId: "",
     imageFile: "",
+    isActive: true,
   });
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -22,7 +26,8 @@ const ManageProducts = () => {
   const updateFormRef = useRef(null);
   const addFormRef = useRef(null);
 
-  const productsPerPage = 10;
+  const productsPerPage = 5;
+
   const totalPages = Math.ceil(products.length / productsPerPage);
   const paginatedProducts = products.slice(
     (currentPage - 1) * productsPerPage,
@@ -30,31 +35,59 @@ const ManageProducts = () => {
   );
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await axios.get("http://localhost:5219/api/productcategory");
-        setCategories(res.data);
-      } catch (err) {
-        console.error("Failed to fetch categories:", err);
-        setErrorMessage("Failed to load categories.");
-      }
-    };
     fetchCategories();
+    fetchAllProducts(); // Call fetchAllProducts inside useEffect
   }, []);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get("http://localhost:5219/api/product");
-        setProducts(res.data);
-        setErrorMessage("");
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get("http://localhost:5219/api/productcategory");
+      setCategories(res.data);
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+      setErrorMessage("Failed to load categories.");
+    }
+  };
+
+  // Fetch all products (not just active ones)
+  const fetchAllProducts = async () => {
+    try {
+      const res = await axios.get("http://localhost:5219/api/product");
+      // Ensure isActive is explicitly a boolean (true/false)
+      const normalized = res.data.map((p) => ({
+        ...p,
+        isActive: p.isActive === true || p.isActive === "true", // Explicitly set to boolean
+      }));
+      setProducts(normalized);
+      setErrorMessage(""); // Clear error message
+    } catch (err) {
+      console.error("Failed to fetch products:", err);
+      setErrorMessage("Failed to load products.");
+    }
+  };
+
+  const toggleProductActive = async (productId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setErrorMessage("Authentication token is missing.");
+      return;
+    }
+
+    try {
+        await axios.put(
+          `http://localhost:5219/api/product/${productId}/toggle-active`,
+          null,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        fetchAllProducts();
+        toast.success("Product status updated.");
       } catch (err) {
-        console.error("Failed to fetch products:", err);
-        setErrorMessage("Failed to load products.");
+        console.error("Toggle active status failed:", err);
+        toast.error("Failed to toggle product status.");
       }
-    };
-    fetchProducts();
-  }, []);
+    }      
 
   const clearForm = () => {
     setProductDetails({
@@ -66,6 +99,7 @@ const ManageProducts = () => {
       quantity: "",
       categoryId: "",
       imageFile: "",
+      isActive: true,
     });
   };
 
@@ -97,6 +131,74 @@ const ManageProducts = () => {
       setProductDetails((prev) => ({ ...prev, imageFile: null }));
     }
   };
+
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
+  
+    const {
+      productName,
+      productDescription,
+      unitPrice,
+      available,
+      quantity,
+      categoryId,
+      imageFile,
+    } = productDetails;
+  
+    if (
+      !productName ||
+      !productDescription ||
+      isNaN(unitPrice) ||
+      unitPrice <= 0 ||
+      !available ||
+      isNaN(quantity) ||
+      quantity < 0 ||
+      isNaN(categoryId) ||
+      categoryId <= 0 ||
+      !imageFile
+    ) {
+      setErrorMessage("Please fill all fields correctly.");
+      return;
+    }
+  
+    // Check if a product with the same name already exists (case-insensitive)
+    const duplicate = products.find(
+      (p) => p.productName.toLowerCase().trim() === productName.toLowerCase().trim()
+    );
+    if (duplicate) {
+      setErrorMessage("A product with this name already exists.");
+      toast.error("Duplicate product.Cannot be added.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("productName", productName);
+    formData.append("productDescription", productDescription);
+    formData.append("unitPrice", unitPrice);
+    formData.append("available", available);
+    formData.append("quantity", quantity);
+    formData.append("categoryId", categoryId);
+    formData.append("productImage", imageFile);
+  
+    try {
+      await axios.post("http://localhost:5219/api/product/addProduct", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+  
+      toast.success("Product added successfully!");
+      clearForm();
+      setIsAddingProduct(false); // <-- Close the form
+      fetchAllProducts();
+    } catch (err) {
+      console.error("Add error:", err.response?.data || err.message);
+      toast.error("Failed to add product.");
+    }
+  };
+  
 
   const handleUpdateProduct = async (productId) => {
     const token = localStorage.getItem("token");
@@ -139,103 +241,45 @@ const ManageProducts = () => {
     formData.append("quantity", quantity);
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
-
     try {
-      await axios.put(
-        `http://localhost:5219/api/product/${productId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      alert("Product updated successfully!");
-      clearForm();
-    } catch (err) {
-      console.error("Update error:", err.response?.data || err.message);
-      setErrorMessage("Failed to update product.");
-    }
-  };
-
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-
-    const {
-      productName,
-      productDescription,
-      unitPrice,
-      available,
-      quantity,
-      categoryId,
-      imageFile,
-    } = productDetails;
-
-    if (
-      !productName ||
-      !productDescription ||
-      isNaN(unitPrice) ||
-      unitPrice <= 0 ||
-      !available ||
-      isNaN(quantity) ||
-      quantity <= 0 ||
-      isNaN(categoryId) ||
-      categoryId <= 0 ||
-      !imageFile
-    ) {
-      setErrorMessage("Please fill all fields correctly.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("productName", productName);
-    formData.append("productDescription", productDescription);
-    formData.append("unitPrice", unitPrice);
-    formData.append("available", available);
-    formData.append("quantity", quantity);
-    formData.append("categoryId", categoryId);
-    formData.append("productImage", imageFile);
-
-    try {
-      await axios.post(
-        "http://localhost:5219/api/product/addProduct",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      alert("Product added successfully!");
-      clearForm();
-      setIsAddingProduct(false);
-    } catch (err) {
-      console.error("Add product error:", err.response?.data || err.message);
-      setErrorMessage("Failed to add product.");
-    }
+        await axios.put(
+          `http://localhost:5219/api/product/${productId}`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        toast.success("Product updated successfully!");
+        clearForm();
+        fetchAllProducts();
+        setProductDetails(prev => ({ ...prev, productId: "" }));
+      } catch (err) {
+        console.error("Update error:", err.response?.data || err.message);
+        toast.error("Failed to update product.");
+      }
+      
   };
 
   return (
     <div className="product-table-container">
-    <h2>
-  All Products
-  <button
-    onClick={() => {
-      setIsAddingProduct(true); // Always show form
-      clearForm();              // Always reset form
-      setTimeout(() => {
-        addFormRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    }}
-  >
-    Add Product
-  </button>
-</h2>
-
-    
+        <ToastContainer position="bottom-right" autoClose={4000} />
+      <h2>
+        All Products
+        <button
+          onClick={() => {
+            setIsAddingProduct(true); // Always show form
+            clearForm(); // Always reset form
+            setTimeout(() => {
+              addFormRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          }}
+        >
+          Add Product
+        </button>
+      </h2>
 
       {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
 
@@ -250,9 +294,8 @@ const ManageProducts = () => {
               <th>Available</th>
               <th>Price</th>
               <th>Quantity</th>
+              <th>Active</th>
               <th>Actions</th>
-              <th>Status</th>
-              
             </tr>
           </thead>
           <tbody>
@@ -260,18 +303,27 @@ const ManageProducts = () => {
               <tr key={product.productId}>
                 <td>{product.productName}</td>
                 <td>
-                  {
-                    categories.find(
-                      (c) => c.categoryId === product.categoryId
-                    )?.categoryName || "Unknown"
-                  }
+                  {categories.find((c) => c.categoryId === product.categoryId)
+                    ?.categoryName || "Unknown"}
                 </td>
                 <td>{product.productDescription}</td>
                 <td>{product.productImage}</td>
                 <td>{product.available}</td>
                 <td>{product.unitPrice}</td>
                 <td>{product.quantity}</td>
-                <td>{product.isActive ? "Active" : "Inactive"}</td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={product.isActive} // Dynamically set based on the isActive value
+                    onChange={() => toggleProductActive(product.productId)}
+                    style={{
+                      appearance: "auto",
+                      width: "15px",
+                      height: "15px",
+                    }} // Style adjustments
+                  />
+                </td>
+
                 <td>
                   <button
                     onClick={() => {
@@ -284,6 +336,7 @@ const ManageProducts = () => {
                         quantity: product.quantity,
                         categoryId: product.categoryId,
                         imageFile: product.productImage,
+                        isActive: product.isActive,
                       });
                       setTimeout(() => {
                         updateFormRef.current?.scrollIntoView({
@@ -300,12 +353,14 @@ const ManageProducts = () => {
           </tbody>
         </table>
       </div>
+      {/* <div>
+        <label>Test Checkbox</label>
+        <input type="checkbox" checked={true} />
+      </div> */}
 
       <div className="pagination">
         <button
-          onClick={() =>
-            setCurrentPage((prev) => Math.max(prev - 1, 1))
-          }
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
         >
           Previous
@@ -338,7 +393,12 @@ const ManageProducts = () => {
               <input
                 type="text"
                 value={productDetails.productName}
-                onChange={(e) => setProductDetails({ ...productDetails, productName: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    productName: e.target.value,
+                  })
+                }
                 placeholder="Enter product name"
                 required
               />
@@ -348,7 +408,12 @@ const ManageProducts = () => {
               <label>Description</label>
               <textarea
                 value={productDetails.productDescription}
-                onChange={(e) => setProductDetails({ ...productDetails, productDescription: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    productDescription: e.target.value,
+                  })
+                }
                 placeholder="Enter product description"
                 required
               />
@@ -359,7 +424,12 @@ const ManageProducts = () => {
               <input
                 type="number"
                 value={productDetails.unitPrice}
-                onChange={(e) => setProductDetails({ ...productDetails, unitPrice: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    unitPrice: e.target.value,
+                  })
+                }
                 placeholder="Enter price"
                 required
               />
@@ -370,7 +440,12 @@ const ManageProducts = () => {
               <input
                 type="number"
                 value={productDetails.quantity}
-                onChange={(e) => setProductDetails({ ...productDetails, quantity: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    quantity: e.target.value,
+                  })
+                }
                 placeholder="Enter quantity"
                 required
               />
@@ -378,11 +453,19 @@ const ManageProducts = () => {
 
             <div className="form-group">
               <label>Product Image</label>
-              <input type="file" accept=".jpg,.jpeg" onChange={handleFileChange} />
+              <input
+                type="file"
+                accept=".jpg,.jpeg"
+                onChange={handleFileChange}
+              />
               {uploading && <p>Uploading image...</p>}
               {productDetails.imageFile && (
                 <div style={{ marginTop: "10px" }}>
-                  <img src={productDetails.imageFile} alt="Preview" style={{ maxWidth: "200px", borderRadius: "5px" }} />
+                  <img
+                    src={productDetails.imageFile}
+                    alt="Preview"
+                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                  />
                 </div>
               )}
             </div>
@@ -391,7 +474,12 @@ const ManageProducts = () => {
               <label>Category</label>
               <select
                 value={productDetails.categoryId}
-                onChange={(e) => setProductDetails({ ...productDetails, categoryId: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    categoryId: e.target.value,
+                  })
+                }
                 required
               >
                 <option value="">Select Category</option>
@@ -408,45 +496,50 @@ const ManageProducts = () => {
               <input
                 type="text"
                 value={productDetails.available}
-                onChange={(e) => setProductDetails({ ...productDetails, available: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    available: e.target.value,
+                  })
+                }
                 placeholder="Available/Not Available"
                 required
               />
             </div>
 
-            <button type="submit" className="submit-btn">Update Product</button>
+            <button type="submit" className="submit-btn">
+              Update Product
+            </button>
             <button
-  type="button"
-  className="cancel-btn"
-  onClick={() => {
-    clearForm();
-  }}
-  style={{ marginLeft: "10px", backgroundColor: "#ccc" }}
->
-  Cancel
-</button>
-
+              type="button"
+              className="cancel-btn"
+              onClick={() => {
+                clearForm();
+              }}
+              style={{ marginLeft: "10px", backgroundColor: "#ccc" }}
+            >
+              Cancel
+            </button>
           </form>
         </div>
       )}
 
-
-
-
       {isAddingProduct && (
         <div ref={addFormRef} className="add-form-container">
           <h3>Add Product</h3>
-          <form
-            className="add-form"
-            onSubmit={handleAddProduct}
-          >
+          <form className="add-form" onSubmit={handleAddProduct}>
             {/* Add Product Form Fields */}
             <div className="form-group">
               <label>Product Name</label>
               <input
                 type="text"
                 value={productDetails.productName}
-                onChange={(e) => setProductDetails({ ...productDetails, productName: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    productName: e.target.value,
+                  })
+                }
                 placeholder="Enter product name"
                 required
               />
@@ -455,7 +548,12 @@ const ManageProducts = () => {
               <label>Description</label>
               <textarea
                 value={productDetails.productDescription}
-                onChange={(e) => setProductDetails({ ...productDetails, productDescription: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    productDescription: e.target.value,
+                  })
+                }
                 placeholder="Enter product description"
                 required
               />
@@ -465,7 +563,12 @@ const ManageProducts = () => {
               <input
                 type="number"
                 value={productDetails.unitPrice}
-                onChange={(e) => setProductDetails({ ...productDetails, unitPrice: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    unitPrice: e.target.value,
+                  })
+                }
                 placeholder="Enter unit price"
                 required
               />
@@ -474,7 +577,12 @@ const ManageProducts = () => {
               <label>Available</label>
               <select
                 value={productDetails.available}
-                onChange={(e) => setProductDetails({ ...productDetails, available: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    available: e.target.value,
+                  })
+                }
                 required
               >
                 <option value="">Select availability</option>
@@ -487,7 +595,12 @@ const ManageProducts = () => {
               <input
                 type="number"
                 value={productDetails.quantity}
-                onChange={(e) => setProductDetails({ ...productDetails, quantity: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    quantity: e.target.value,
+                  })
+                }
                 placeholder="Enter quantity"
                 required
               />
@@ -496,7 +609,12 @@ const ManageProducts = () => {
               <label>Category</label>
               <select
                 value={productDetails.categoryId}
-                onChange={(e) => setProductDetails({ ...productDetails, categoryId: e.target.value })}
+                onChange={(e) =>
+                  setProductDetails({
+                    ...productDetails,
+                    categoryId: e.target.value,
+                  })
+                }
                 required
               >
                 <option value="">Select category</option>
@@ -512,20 +630,31 @@ const ManageProducts = () => {
               <input type="file" onChange={handleFileChange} />
               {uploading && <p>Uploading...</p>}
             </div>
+            <div className="form-group">
+              <label>Status</label>
+              <input
+                type="checkbox"
+                checked={productDetails.isActive}
+                onChange={() =>
+                  setProductDetails({
+                    ...productDetails,
+                    isActive: !productDetails.isActive,
+                  })
+                }
+              />
+            </div>
             <button type="submit">Add Product</button>
             <button
-  type="button"
-  className="cancel-btn"
-  onClick={() => {
-    setIsAddingProduct(false); // Hide form
-    clearForm();               // Optional: reset again
-  }}
-  style={{ marginTop: "10px", backgroundColor: "#ccc" }}
->
-  Cancel
-</button>
-
-            
+              type="button"
+              className="cancel-btn"
+              onClick={() => {
+                setIsAddingProduct(false); // Hide form
+                clearForm(); // Optional: reset again
+              }}
+              style={{ marginTop: "10px", backgroundColor: "#ccc" }}
+            >
+              Cancel
+            </button>
           </form>
         </div>
       )}

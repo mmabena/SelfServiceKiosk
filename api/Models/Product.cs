@@ -35,7 +35,9 @@ public class Product
                 Available = this.Available,
                 Quantity = this.Quantity,
                 ProductImage = this.ProductImage,
-                CategoryId = this.CategoryId
+                CategoryId = this.CategoryId,
+                IsActive = this.IsActive
+
             };
 
           }

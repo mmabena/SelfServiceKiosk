@@ -6,14 +6,9 @@ using api.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Xunit;
-using System;
-using CloudinaryDotNet;
+
+
 
 namespace api.Tests
 {
@@ -22,7 +17,7 @@ namespace api.Tests
         private readonly ApplicationDBContext _context;
         private readonly ProductController _controller;
         private readonly Mock<IProductRepository> _mockRepo;
-         private readonly Cloudinary _cloudinary;
+
 
         public ProductControllerTests()
         {
@@ -38,7 +33,7 @@ namespace api.Tests
             _mockRepo = new Mock<IProductRepository>();
             _mockRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(_context.Products.ToList());
 
-            _controller = new ProductController(_context, _mockRepo.Object,_cloudinary);
+            _controller = new ProductController(_context, _mockRepo.Object);
         }
         public void Dispose()
 {

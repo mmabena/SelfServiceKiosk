@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.ComponentModel.DataAnnotations.Schema;
+
 using api.Dtos;
 using api.Mapper;
-using Microsoft.AspNetCore.Identity; // Add this if UserDto is in the 'api.Dtos' namespace
+
 
 
 namespace api.Models

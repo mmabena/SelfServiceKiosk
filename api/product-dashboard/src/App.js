@@ -18,7 +18,7 @@ const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showCart, setShowCart] = useState(false);
 
-  localStorage.setItem("user", JSON.stringify({ id: 3, name: "Mhlaba" }));
+ 
 
 
 
@@ -289,6 +289,66 @@ const totalPages = Math.ceil(products.length / productsPerPage);
       handleError(error);
     }
   };
+  const fetchActiveProducts=async()=>{
+    try{
+      const response=await axios.get("http://localhost:5219/api/product/activeProducts");
+      setProducts(response.data);
+    
+    } catch(error){
+      handleError(error);
+    }
+  }
+  const fetchActiveProductsByCategory = async (categoryName) => {
+    const category = categoryName || searchCategory;
+  
+    if (!category.trim()) {
+      setErrorMessage("Category name is required.");
+      setProducts([]);
+      return;
+    }
+  
+    try {
+      // Fetch all active products
+      const response = await axios.get("http://localhost:5219/api/product/activeProducts");
+  
+      // Ensure you have category mappings loaded
+      if (categories.length === 0) {
+        // Optional: You could fetch categories here if not already available
+        setErrorMessage("Category data is missing.");
+        return;
+      }
+  
+      // Find the matching category ID
+      const matchedCategory = categories.find(
+        (c) => c.categoryName.toLowerCase() === category.toLowerCase()
+      );
+  
+      if (!matchedCategory) {
+        setErrorMessage("Category not found.");
+        setProducts([]);
+        return;
+      }
+  
+      const filtered = response.data.filter(
+        (product) => product.categoryId === matchedCategory.categoryId
+      );
+  
+      if (filtered.length === 0) {
+        setErrorMessage("No active products found for that category.");
+        setProducts([]);
+      } else {
+        setProducts(filtered);
+        setErrorMessage("");
+      }
+    } catch (error) {
+      console.error("Error fetching active products by category:", error);
+      setErrorMessage("Error fetching products.");
+      setProducts([]);
+    }
+  };
+  
+  
+  
 
   const fetchProductById = async () => {
     if (!searchId.trim()) return setErrorMessage("Product ID is required.");
@@ -573,37 +633,31 @@ const totalPages = Math.ceil(products.length / productsPerPage);
         "http://localhost:5219/api/user/login",
         loginDetails
       );
-
-      console.log(response.data); // Log the response for debugging purposes
-
-      if (response.data && response.data.token) {
-        setToken(response.data.token); // Save the token
-        localStorage.setItem("token", response.data.token); // Store token in localStorage
-        setIsLoggedIn(true); // Set user as logged in
+  
+      console.log(response.data); // Debug: confirm full data is received
+  
+      if (response.data && response.data.token && response.data.user) {
+        setToken(response.data.token);
+        setIsLoggedIn(true);
+        
+        // ✅ Store both token and user object
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+  
         alert("Login successful");
-
-        // After successful login, navigate to the products page
-        setDashboardTab("all"); // <- Show the Landing Page
+        setDashboardTab("all"); // Navigate to the landing/dashboard page
       } else {
-        setErrorMessage("Login failed: No token returned.");
+        setErrorMessage("Login failed: Incomplete response.");
       }
     } catch (error) {
       console.error("Login error: ", error);
-      if (error.response) {
-        // Log the response to see more detailed error information
-        console.log("Error response: ", error.response);
-        const errorMessage =
-          error.response.data?.message || "Invalid credentials.";
-        setErrorMessage(errorMessage);
-      } else {
-        setErrorMessage("An error occurred during login.");
-      }
-      setLoginDetails({
-        username: "",
-        password: "",
-      });
+      const errorMessage =
+        error.response?.data?.message || "An error occurred during login.";
+      setErrorMessage(errorMessage);
+      setLoginDetails({ username: "", password: "" });
     }
   };
+  
   {
     /* logic for handling registration and redirecting to the login page when registration is successful*/
   }
@@ -649,7 +703,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
     clearForm();
 
     if (["all", "delete"].includes(activeTab)) {
-      fetchAllProducts();
+      fetchActiveProducts();
       setSearchPerformed(true); // show products list
     } else {
       setProducts([]); // Clear previous results
@@ -894,34 +948,37 @@ const totalPages = Math.ceil(products.length / productsPerPage);
                 </div>
               )}
               {/* logic for searching a product via the product category*/}
-              {activeTab === "byCategory" && (
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Enter Category Name"
-                    value={searchCategory}
-                    onChange={(e) => setSearchCategory(e.target.value)}
-                  />
-                  <button onClick={fetchProductsByCategory}>Search</button>
-                </div>
-              )}
-              {/* logic to ensure the image URL is routed correctly so the images on local can show on the frontend*/}
-              {["all", "byId", "byCategory"].includes(activeTab) && (
-                <>
-                  {/* Category Buttons */}
-                  {activeTab === "all" && (
-                    <div className="category-toolbar">
-                      <div className="category-buttons">
-                        <button onClick={fetchProducts}>All</button>
-                        {categories.map((cat) => (
-                          <button
-                            key={cat.categoryId}
-                            onClick={() =>
-                              fetchProductsByCategory(cat.categoryName)
-                            }
-                          >
-                            {cat.categoryName}
-                          </button>
+       {/* Search by category name (manual input) */}
+{activeTab === "byCategory" && (
+  <div>
+    <input
+      type="text"
+      placeholder="Enter Category Name"
+      value={searchCategory}
+      onChange={(e) => setSearchCategory(e.target.value)}
+    />
+    <button onClick={() => fetchActiveProductsByCategory(searchCategory)}>
+      Search
+    </button>
+  </div>
+)}
+
+{/* Display product table if a relevant tab is active */}
+{["all", "byId", "byCategory"].includes(activeTab) && (
+  <>
+    {/* Category Buttons visible in "all" tab */}
+    {activeTab === "all" && (
+      <div className="category-toolbar">
+        <div className="category-buttons">
+          <button onClick={fetchActiveProducts}>All</button>
+          {categories.map((cat) => (
+            <button
+              key={cat.categoryId}
+              onClick={() => fetchActiveProductsByCategory(cat.categoryName)}
+            >
+              {cat.categoryName}
+            </button>
+
                         ))}
                       </div>
                       {/* <input

@@ -29,5 +29,6 @@ namespace api.Dtos
 
         [Required(ErrorMessage = "Category ID is required.")]
         public int CategoryId { get; set; } // Foreign key to Category
+        public bool IsActive {get;set;}
     }
 }

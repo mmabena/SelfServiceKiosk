@@ -1,9 +1,6 @@
-using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using api.Data;
-using api.Models;
-using api.Dtos;
-using api.Mapper;  // Make sure to include the Mapper
+using api.Mapper;  
 
 namespace api.Controllers
 {

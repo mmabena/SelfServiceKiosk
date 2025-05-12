@@ -6,7 +6,7 @@ using api.Data;
 using api.Models;
 using api.Dtos;
 using api.Interfaces;
-using CloudinaryDotNet;
+
 
 
 namespace api.Controllers
@@ -15,22 +15,37 @@ namespace api.Controllers
     [ApiController]
     public class ProductController : ControllerBase
     {
-        private readonly Cloudinary _cloudinary;
+
         private readonly IProductRepository _productRepo;
         private readonly ApplicationDBContext _context;
 
-        public ProductController(ApplicationDBContext context, IProductRepository productRepo, Cloudinary cloudinary)
+        public ProductController(ApplicationDBContext context, IProductRepository productRepo)
         {
             _context = context;
             _productRepo = productRepo;
-            _cloudinary = cloudinary;
+
         }
-//         [HttpGet]
-// public IActionResult GetActiveProducts()
-// {
-//     var products = _context.Products.Where(p => p.IsActive).ToList();
-//     return Ok(products);
-// }
+        [HttpGet("activeProducts")]
+        public IActionResult GetActiveProducts()
+        {
+            var products = _context.Products.Where(p => p.IsActive).ToList();
+            return Ok(products);
+        }
+        // PUT: api/product/{id}/toggle-active
+        [Authorize(Policy = "RequireSuperUser")]
+        [HttpPut("{id}/toggle-active")]
+        public async Task<IActionResult> ToggleProductActive([FromRoute] int id)
+        {
+            var product = await _productRepo.GetByIdAsync(id);
+            if (product == null)
+                return NotFound("Product not found.");
+
+            product.IsActive = !product.IsActive;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Product active status toggled.", isActive = product.IsActive });
+        }
+
 
 
         // GET: api/product
@@ -128,101 +143,103 @@ namespace api.Controllers
         }
 
         // POST: api/product/addProduct
-[Authorize(Policy = "RequireSuperUser")]
-[HttpPost("addProduct")]
-public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto)
-{
-    // Manual validation (in addition to DataAnnotations)
-    if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
-        return BadRequest("Invalid product name.");
+        [Authorize(Policy = "RequireSuperUser")]
+        [HttpPost("addProduct")]
+        public async Task<IActionResult> AddProduct([FromForm] ProductDto productDto)
+        {
+            // Manual validation (in addition to DataAnnotations)
+            if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
+                return BadRequest("Invalid product name.");
 
-    if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
-        return BadRequest("Invalid description.");
+            if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
+                return BadRequest("Invalid description.");
 
-    if (productDto.UnitPrice <= 0)
-        return BadRequest("Unit price must be greater than zero.");
+            if (productDto.UnitPrice <= 0)
+                return BadRequest("Unit price must be greater than zero.");
 
-    if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
-        return BadRequest("Invalid availability.");
+            if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
+                return BadRequest("Invalid availability.");
 
-    if (productDto.Quantity == null || productDto.Quantity < 0)
-        return BadRequest("Quantity cannot be negative or null.");
+            if (productDto.Quantity == null || productDto.Quantity < 0)
+                return BadRequest("Quantity cannot be negative or null.");
 
-    if (productDto.CategoryId <= 0)
-        return BadRequest("Invalid category ID.");
+            if (productDto.CategoryId <= 0)
+                return BadRequest("Invalid category ID.");
 
-    var categoryExists = await _context.ProductCategories
-        .AnyAsync(c => c.CategoryId == productDto.CategoryId);
-    if (!categoryExists)
-        return BadRequest("The specified category does not exist.");
+            var categoryExists = await _context.ProductCategories
+                .AnyAsync(c => c.CategoryId == productDto.CategoryId);
+            if (!categoryExists)
+                return BadRequest("The specified category does not exist.");
 
-    var product = new Product
-    {
-        ProductName = productDto.ProductName,
-        ProductDescription = productDto.ProductDescription,
-        UnitPrice = productDto.UnitPrice,
-        Available = productDto.Available,
-        Quantity = productDto.Quantity.Value,
-        CategoryId = productDto.CategoryId,
-        ProductImage = !string.IsNullOrEmpty(productDto.ProductImage)
+            var product = new Product
+            {
+                ProductName = productDto.ProductName,
+                ProductDescription = productDto.ProductDescription,
+                UnitPrice = productDto.UnitPrice,
+                Available = productDto.Available,
+                Quantity = productDto.Quantity.Value,
+                CategoryId = productDto.CategoryId,
+                ProductImage = !string.IsNullOrEmpty(productDto.ProductImage)
             ? productDto.ProductImage
-            : "https://example.com/default-image.jpg"
-    };
+            : "https://example.com/default-image.jpg",
+                IsActive = productDto.IsActive // ✅ Include this
+            };
 
-    var createdProduct = await _productRepo.CreateAsync(product, null);
-    var productResult = createdProduct.ToProductDto();
-    return CreatedAtAction("GetById", new { id = productResult.ProductId }, productResult);
-}
+
+            var createdProduct = await _productRepo.CreateAsync(product, null);
+            var productResult = createdProduct.ToProductDto();
+            return CreatedAtAction("GetById", new { id = productResult.ProductId }, productResult);
+        }
 
         // PUT: api/product/{id}
-[Authorize(Policy = "RequireSuperUser")]
-[HttpPut("{id}")]
-public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto)
-{
-    // Validation (same as AddProduct)
-    if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
-        return BadRequest("Invalid product name.");
+        [Authorize(Policy = "RequireSuperUser")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateProduct([FromRoute] int id, [FromForm] ProductDto productDto)
+        {
+            // Validation (same as AddProduct)
+            if (string.IsNullOrEmpty(productDto.ProductName) || productDto.ProductName.Length > 50)
+                return BadRequest("Invalid product name.");
 
-    if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
-        return BadRequest("Invalid description.");
+            if (string.IsNullOrEmpty(productDto.ProductDescription) || productDto.ProductDescription.Length > 200)
+                return BadRequest("Invalid description.");
 
-    if (productDto.UnitPrice <= 0)
-        return BadRequest("Price must be positive.");
+            if (productDto.UnitPrice <= 0)
+                return BadRequest("Price must be positive.");
 
-    if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
-        return BadRequest("Invalid availability.");
+            if (string.IsNullOrEmpty(productDto.Available) || productDto.Available.Length > 50)
+                return BadRequest("Invalid availability.");
 
-    if (productDto.Quantity < 0)
-        return BadRequest("Quantity cannot be negative.");
+            if (productDto.Quantity < 0)
+                return BadRequest("Quantity cannot be negative.");
 
-    var categoryExists = await _context.ProductCategories.AnyAsync(c => c.CategoryId == productDto.CategoryId);
-    if (!categoryExists)
-        return BadRequest("The specified category does not exist.");
+            var categoryExists = await _context.ProductCategories.AnyAsync(c => c.CategoryId == productDto.CategoryId);
+            if (!categoryExists)
+                return BadRequest("The specified category does not exist.");
 
-    // Check if product exists before updating
-    var existingProduct = await _productRepo.GetByIdAsync(id);
-    if (existingProduct == null)
-        return NotFound("Product not found.");
+            // Check if product exists before updating
+            var existingProduct = await _productRepo.GetByIdAsync(id);
+            if (existingProduct == null)
+                return NotFound("Product not found.");
 
-    // Update the product details
-    existingProduct.ProductName = productDto.ProductName;
-    existingProduct.ProductDescription = productDto.ProductDescription;
-    existingProduct.UnitPrice = productDto.UnitPrice;
-    existingProduct.Available = productDto.Available;
-    existingProduct.Quantity = productDto.Quantity;
-    existingProduct.CategoryId = productDto.CategoryId;
+            // Update the product details
+            existingProduct.ProductName = productDto.ProductName;
+            existingProduct.ProductDescription = productDto.ProductDescription;
+            existingProduct.UnitPrice = productDto.UnitPrice;
+            existingProduct.Available = productDto.Available;
+            existingProduct.Quantity = productDto.Quantity;
+            existingProduct.CategoryId = productDto.CategoryId;
 
-    // If a new image is provided (Cloudinary URL), update it
-    if (!string.IsNullOrEmpty(productDto.ProductImage))
-    {
-        existingProduct.ProductImage = productDto.ProductImage; // New image URL
-    }
+            // If a new image is provided (Cloudinary URL), update it
+            if (!string.IsNullOrEmpty(productDto.ProductImage))
+            {
+                existingProduct.ProductImage = productDto.ProductImage; // New image URL
+            }
 
-    // Save the changes
-    await _context.SaveChangesAsync();
+            // Save the changes
+            await _context.SaveChangesAsync();
 
-    return Ok(new { message = "Product successfully updated.", product = existingProduct });
-}
+            return Ok(new { message = "Product successfully updated.", product = existingProduct });
+        }
 
 
     }
