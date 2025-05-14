@@ -1,12 +1,28 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
+
+using api.Dtos;
+using api.Models;
 
 namespace api.Mapper
 {
-    public class UserMapper
-    {
-        
-    }
+    public static class UserMapper
+     {  
+     
+        public static  UserDto ToUserDto(this User userModel)
+        {
+            return new UserDto
+            {
+                UserId = userModel.UserId,
+                Username = userModel.Username,
+                FirstName = userModel.FirstName,
+                LastName = userModel.LastName,
+                Email = userModel.Email,
+                Role = userModel.UserRole?.RoleName,  
+                Wallet = userModel.Wallet?.ToWalletDto(),
+                Carts = userModel.Carts?.Select(cart => cart.ToCartDto()).ToList(),
+                Transactions = userModel.Transactions?.Select(transaction => transaction.ToTransactionDto()).ToList()
+            };
+        }
+    
+}
 }

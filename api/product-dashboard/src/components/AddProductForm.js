@@ -50,12 +50,16 @@ const AddProductForm = ({ onAddProduct }) => {
     }
 
     try {
-      const response = await axios.post("http://localhost:5219/api/product/addProduct", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: "Bearer YOUR_ACCESS_TOKEN", // Replace if needed
-        },
-      });
+      const response = await axios.post(
+        "http://localhost:5219/api/product/addProduct",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: "Bearer YOUR_ACCESS_TOKEN", // Replace if needed
+          },
+        }
+      );
 
       onAddProduct(response.data);
       setMessage("Product added successfully!");
@@ -70,7 +74,9 @@ const AddProductForm = ({ onAddProduct }) => {
       });
       setImageFile(null);
     } catch (error) {
-      setMessage(`Error adding product: ${error.response?.data || error.message}`);
+      setMessage(
+        `Error adding product: ${error.response?.data || error.message}`
+      );
     }
   };
 

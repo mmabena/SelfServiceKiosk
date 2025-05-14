@@ -1,12 +1,11 @@
 // src/LoginForm.js
-import React, { useState } from 'react';
-import './App.css'; 
-
+import React, { useState } from "react";
+import "./App.css";
 
 const LoginForm = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();

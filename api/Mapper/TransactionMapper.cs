@@ -13,10 +13,10 @@ namespace api.Mapper
                 TransactionDate = transactionModel.TransactionDate,
                 OrderType = transactionModel.OrderType,
 
-                // Map User to UserDto
+               
                 User = transactionModel.User?.ToUserDto(),
 
-                // Map Carts to CartDto if they exist
+               
                 Carts = transactionModel.Carts?.Select(cart => cart.ToCartDto()).ToList()
             };
         }

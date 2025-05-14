@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using System.ComponentModel.DataAnnotations.Schema;
 using api.Dtos;
 
@@ -12,11 +9,11 @@ namespace api.Models
 
     public class ProductCategory
     
-    {  public int CategoryId { get; set; }  // Primary Key
+    {  public int CategoryId { get; set; }  
         public string CategoryName { get; set; }
 
         // Navigation Property
-        public ICollection<Product> Products { get; set; }  // One-to-many relationship
+        public ICollection<Product> Products { get; set; }  
 
          public ProductCategoryDto ToProductCategoryDto()
         {
@@ -29,7 +26,3 @@ namespace api.Models
         }
     }
 }
-//CREATE TABLE ProductCategories(
-//CategoryId INT IDENTITY (1,1) PRIMARY KEY,
-//CategoryName VARCHAR(50)
-//);

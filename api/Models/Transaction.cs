@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace api.Models
@@ -7,22 +6,22 @@ namespace api.Models
     [Table("Transactions")]
     public class Transaction
     {
-        public int TransactionId { get; set; }  // Primary Key
+        public int TransactionId { get; set; }  
 
-        public int UserId { get; set; }  // Foreign Key to User
-        public DateTime TransactionDate { get; set; }  // Date of the transaction
-        public string OrderType { get; set; }  // Type of order (for example, "Purchase", "Refund", etc.)
+        public int UserId { get; set; }  
+        public DateTime TransactionDate { get; set; } 
+        public string OrderType { get; set; }  
 
-        // Foreign Key relationship to User
-        public User User { get; set; }  // Navigation property to User
+       
+        public User User { get; set; }  
 
-        // Navigation property for one-to-many relationship with Cart
-        public ICollection<Cart> Carts { get; set; }  // A Transaction can have multiple Cart entries
+        
+        public ICollection<Cart> Carts { get; set; } 
 
-        // Constructor to ensure the collection is never null
+      
         public Transaction()
         {
-            Carts = new List<Cart>();  // Initialize the collection to avoid null reference exceptions
+            Carts = new List<Cart>();  
         }
     }
 }

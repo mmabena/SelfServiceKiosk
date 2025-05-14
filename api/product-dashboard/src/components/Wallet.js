@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import '../LoginSignup.css';
+import "../LoginSignup.css";
 
 const Wallet = () => {
   const [balance, setAmount] = useState(""); // User input amount
@@ -13,10 +13,26 @@ const Wallet = () => {
   const userId = user?.userId; // Correct key
   const isSuperUser = user?.role === "SuperUser";
 
+  const fetchWalletBalance = async (userId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5219/api/wallet/${userId}`
+      );
+      if (!response.ok) throw new Error("Wallet not found.");
+      const data = await response.json();
+      return data.balance ?? 0;
+    } catch (error) {
+      console.error("Failed to fetch wallet balance:", error);
+      return 0;
+    }
+  };
+
   // Fetch wallet balance from the server
   const fetchBalance = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5219/api/wallet/${userId}`);
+      const response = await fetch(
+        `http://localhost:5219/api/wallet/${userId}`
+      );
       if (!response.ok) throw new Error("Wallet not found.");
       const data = await response.json();
       setFunds(data.balance); // Update wallet balance state
@@ -62,7 +78,9 @@ const Wallet = () => {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to add R${numericAmount.toFixed(2)} to your wallet?`
+      `Are you sure you want to add R${numericAmount.toFixed(
+        2
+      )} to your wallet?`
     );
 
     if (!confirmed) return;
@@ -109,7 +127,9 @@ const Wallet = () => {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to add R${numericAmount.toFixed(2)} to this user's wallet?`
+      `Are you sure you want to add R${numericAmount.toFixed(
+        2
+      )} to this user's wallet?`
     );
 
     if (!confirmed) return;
@@ -144,7 +164,9 @@ const Wallet = () => {
     <div className="wallet-wrapper">
       <div className="wallet-container">
         <h2>💰 Your Wallet</h2>
-        <p>Current Balance: <strong>R{(funds ?? 0).toFixed(2)}</strong></p>
+        <p>
+          Current Balance: <strong>R{(funds ?? 0).toFixed(2)}</strong>
+        </p>
 
         {/* Display the input field */}
         <input
@@ -180,7 +202,10 @@ const Wallet = () => {
         )}
 
         {/* Button for adding funds to wallet */}
-        <button onClick={isSuperUser ? handleAddAmountToUser : handleAddAmount} disabled={loading}>
+        <button
+          onClick={isSuperUser ? handleAddAmountToUser : handleAddAmount}
+          disabled={loading}
+        >
           {loading ? "Adding..." : "Add to Wallet"}
         </button>
       </div>

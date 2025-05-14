@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "../LoginSignup.css";
 import { ToastContainer, toast } from "react-toastify";
-import 'react-toastify/dist/ReactToastify.css';
-
+import "react-toastify/dist/ReactToastify.css";
 
 const ManageProducts = () => {
   const [products, setProducts] = useState([]);
@@ -74,20 +73,24 @@ const ManageProducts = () => {
     }
 
     try {
-        await axios.put(
-          `http://localhost:5219/api/product/${productId}/toggle-active`,
-          null,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        fetchAllProducts();
-        toast.success("Product status updated.");
-      } catch (err) {
-        console.error("Toggle active status failed:", err);
+      await axios.put(
+        `http://localhost:5219/api/product/${productId}/toggle-active`,
+        null,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      fetchAllProducts();
+      toast.success("Product status updated.");
+    } catch (err) {
+      console.error("Error:", err.response?.data || err.message);
+      if (err.response?.status === 403) {
+        toast.error("You are unauthorised to perform this action.");
+      } else {
         toast.error("Failed to toggle product status.");
       }
-    }      
+    }
+  };
 
   const clearForm = () => {
     setProductDetails({
@@ -135,7 +138,7 @@ const ManageProducts = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-  
+
     const {
       productName,
       productDescription,
@@ -145,7 +148,7 @@ const ManageProducts = () => {
       categoryId,
       imageFile,
     } = productDetails;
-  
+
     if (
       !productName ||
       !productDescription ||
@@ -161,17 +164,18 @@ const ManageProducts = () => {
       setErrorMessage("Please fill all fields correctly.");
       return;
     }
-  
+
     // Check if a product with the same name already exists (case-insensitive)
     const duplicate = products.find(
-      (p) => p.productName.toLowerCase().trim() === productName.toLowerCase().trim()
+      (p) =>
+        p.productName.toLowerCase().trim() === productName.toLowerCase().trim()
     );
     if (duplicate) {
       setErrorMessage("A product with this name already exists.");
       toast.error("Duplicate product.Cannot be added.");
       return;
     }
-  
+
     const formData = new FormData();
     formData.append("productName", productName);
     formData.append("productDescription", productDescription);
@@ -180,25 +184,33 @@ const ManageProducts = () => {
     formData.append("quantity", quantity);
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
-  
+
     try {
-      await axios.post("http://localhost:5219/api/product/addProduct", formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
-  
+      await axios.post(
+        "http://localhost:5219/api/product/addProduct",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
       toast.success("Product added successfully!");
       clearForm();
       setIsAddingProduct(false); // <-- Close the form
       fetchAllProducts();
     } catch (err) {
       console.error("Add error:", err.response?.data || err.message);
-      toast.error("Failed to add product.");
+
+      if (err.response?.status === 403) {
+        toast.error("You are not authorized to perform this action.");
+      } else {
+        toast.error("Failed to add product.");
+      }
     }
   };
-  
 
   const handleUpdateProduct = async (productId) => {
     const token = localStorage.getItem("token");
@@ -242,44 +254,49 @@ const ManageProducts = () => {
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
     try {
-        await axios.put(
-          `http://localhost:5219/api/product/${productId}`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        toast.success("Product updated successfully!");
-        clearForm();
-        fetchAllProducts();
-        setProductDetails(prev => ({ ...prev, productId: "" }));
-      } catch (err) {
-        console.error("Update error:", err.response?.data || err.message);
+      await axios.put(
+        `http://localhost:5219/api/product/${productId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      toast.success("Product updated successfully!");
+      clearForm();
+      fetchAllProducts();
+      setProductDetails((prev) => ({ ...prev, productId: "" }));
+    } catch (err) {
+      console.error("Update error:", err.response?.data || err.message);
+
+      if (err.response?.status === 403) {
+        toast.error("You are not authorized to perform this action.");
+      } else {
         toast.error("Failed to update product.");
       }
-      
+    }
   };
 
   return (
     <div className="product-table-container">
-        <ToastContainer position="bottom-right" autoClose={4000} />
-      <h2>
-        All Products
-        <button
-          onClick={() => {
-            setIsAddingProduct(true); // Always show form
-            clearForm(); // Always reset form
-            setTimeout(() => {
-              addFormRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
-          }}
-        >
-          Add Product
-        </button>
-      </h2>
+      <ToastContainer position="bottom-right" autoClose={4000} />
+      <h2>All Products</h2>
+<div className="product-actions">
+  <button
+    onClick={() => {
+      setIsAddingProduct(true);
+      clearForm();
+      setTimeout(() => {
+        addFormRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }}
+  >
+    Add Product
+  </button>
+</div>
+
 
       {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
 
@@ -291,7 +308,7 @@ const ManageProducts = () => {
               <th>Category</th>
               <th>Description</th>
               <th>Image URL</th>
-              <th>Available</th>
+              
               <th>Price</th>
               <th>Quantity</th>
               <th>Active</th>
@@ -308,7 +325,7 @@ const ManageProducts = () => {
                 </td>
                 <td>{product.productDescription}</td>
                 <td>{product.productImage}</td>
-                <td>{product.available}</td>
+              
                 <td>{product.unitPrice}</td>
                 <td>{product.quantity}</td>
                 <td>
@@ -316,47 +333,47 @@ const ManageProducts = () => {
                     type="checkbox"
                     checked={product.isActive} // Dynamically set based on the isActive value
                     onChange={() => toggleProductActive(product.productId)}
-                    style={{
-                      appearance: "auto",
-                      width: "15px",
-                      height: "15px",
-                    }} // Style adjustments
+                    // style={{
+                    //   appearance: "auto",
+                    //   width: "15px",
+                    //   height: "15px",
+                    // }} // Style adjustments
                   />
                 </td>
 
                 <td>
-                  <button
-                    onClick={() => {
-                      setProductDetails({
-                        productId: product.productId,
-                        productName: product.productName,
-                        productDescription: product.productDescription,
-                        unitPrice: product.unitPrice,
-                        available: product.available,
-                        quantity: product.quantity,
-                        categoryId: product.categoryId,
-                        imageFile: product.productImage,
-                        isActive: product.isActive,
-                      });
-                      setTimeout(() => {
-                        updateFormRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                        });
-                      }, 100);
-                    }}
-                  >
-                    Update
-                  </button>
-                </td>
+  <div className="product-actions">
+    <button
+      className="product-actions-button"
+      onClick={() => {
+        setProductDetails({
+          productId: product.productId,
+          productName: product.productName,
+          productDescription: product.productDescription,
+          unitPrice: product.unitPrice,
+          available: product.available,
+          quantity: product.quantity,
+          categoryId: product.categoryId,
+          imageFile: product.productImage,
+          isActive: product.isActive,
+        });
+        setTimeout(() => {
+          updateFormRef.current?.scrollIntoView({
+            behavior: "smooth",
+          });
+        }, 100);
+      }}
+    >
+      Update
+    </button>
+  </div>
+</td>
+
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {/* <div>
-        <label>Test Checkbox</label>
-        <input type="checkbox" checked={true} />
-      </div> */}
 
       <div className="pagination">
         <button
@@ -507,7 +524,7 @@ const ManageProducts = () => {
               />
             </div>
 
-            <button type="submit" className="submit-btn">
+            <button type="submit"  className="btn-blue">
               Update Product
             </button>
             <button
@@ -643,7 +660,7 @@ const ManageProducts = () => {
                 }
               />
             </div>
-            <button type="submit">Add Product</button>
+            <button type="submit" className="btn-blue">Add Product</button>
             <button
               type="button"
               className="cancel-btn"

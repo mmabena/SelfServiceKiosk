@@ -17,7 +17,10 @@ const ProductItem = ({ product, onDelete, onUpdate }) => {
             type="text"
             value={updatedProduct.ProductName}
             onChange={(e) =>
-              setUpdatedProduct({ ...updatedProduct, ProductName: e.target.value })
+              setUpdatedProduct({
+                ...updatedProduct,
+                ProductName: e.target.value,
+              })
             }
           />
           <button onClick={handleUpdate}>Update</button>
@@ -30,9 +33,13 @@ const ProductItem = ({ product, onDelete, onUpdate }) => {
 
           {/* Display Product Image */}
           {product.ProductImage ? (
-            <img src={product.ProductImage} alt={product.ProductName} className="product-image" />
+            <img
+              src={product.ProductImage}
+              alt={product.ProductName}
+              className="product-image"
+            />
           ) : (
-            <p>No image available</p>  // Fallback text if no image is provided
+            <p>No image available</p> // Fallback text if no image is provided
           )}
 
           <button onClick={() => setIsEditing(true)}>Edit</button>

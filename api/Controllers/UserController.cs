@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using api.Mapper;
 
 namespace api.Controllers
 {
@@ -28,7 +29,7 @@ namespace api.Controllers
         // GET: api/user
         [HttpGet]
         public IActionResult GetAll()
-        {
+        {   
             var users = _context.Users
                                 .Include(u => u.UserRole) // Include UserRole data
                                 .ToList()

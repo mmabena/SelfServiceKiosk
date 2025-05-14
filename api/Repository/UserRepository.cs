@@ -3,11 +3,8 @@ using api.Dtos;
 using api.Models;
 using api.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using BCrypt.Net;
+using api.Mapper;
+
 
 namespace api.Repositories
 {

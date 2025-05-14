@@ -1,7 +1,5 @@
-import React from 'react';
-import '../LoginSignup.css';
-
-
+import React from "react";
+import "../LoginSignup.css";
 
 const LogoutButton = ({ onLogout }) => {
   return (

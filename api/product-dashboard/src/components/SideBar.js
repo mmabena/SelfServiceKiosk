@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';  // Import useNavigate from react-router-dom
-import '../LoginSignup.css';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate from react-router-dom
+import "../LoginSignup.css";
 
 const Sidebar = ({ onMenuClick }) => {
   const [openMenus, setOpenMenus] = useState({
     purchase: true,
-    manage: true
+    manage: true,
   });
 
-  const navigate = useNavigate();  // Initialize navigate function
+  const navigate = useNavigate(); // Initialize navigate function
 
   // Handle item click and navigation
   const handleItemClick = (tab) => {
@@ -16,19 +16,23 @@ const Sidebar = ({ onMenuClick }) => {
 
     // Navigate to different pages based on the tab clicked
     if (tab === "manageproducts") {
-      navigate('/manageproducts');  // Navigate to the Manage Products page
+      navigate("/manageproducts"); // Navigate to the Manage Products page
     } else if (tab === "wallet") {
-      navigate('/wallet');  // Navigate to the Wallet page
+      navigate("/wallet"); // Navigate to the Wallet page
     } else if (tab === "add") {
-      navigate('/add');  // Navigate to another page, such as Report
-    }else if (tab === "all") {
-      navigate('/all'); 
+      navigate("/add"); // Navigate to another page, such as Report
+    } else if (tab === "all") {
+      navigate("/all");
     }
   };
 
   return (
     <div className="sidebar fixed-open">
-      <img src="/images/Logo_Option_2.jpg" alt="Logo" className="sidebar-logo" />
+      <img
+        src="/images/Logo_Option_2.jpg"
+        alt="Logo"
+        className="sidebar-logo"
+      />
 
       <ul>
         <li>
@@ -55,7 +59,7 @@ const Sidebar = ({ onMenuClick }) => {
         <li>
           <span
             className="menu-heading"
-            onClick={() => handleItemClick("add")}
+            onClick={() => handleItemClick("report")}
           >
             Report
           </span>

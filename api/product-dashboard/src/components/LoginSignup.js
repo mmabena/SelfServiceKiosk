@@ -36,10 +36,16 @@ const LoginSignup = () => {
             checked={!isLogin}
             onChange={() => setIsLogin(false)}
           />
-          <label htmlFor="login" className={`slide login ${isLogin ? "active" : ""}`}>
+          <label
+            htmlFor="login"
+            className={`slide login ${isLogin ? "active" : ""}`}
+          >
             Login
           </label>
-          <label htmlFor="signup" className={`slide signup ${!isLogin ? "active" : ""}`}>
+          <label
+            htmlFor="signup"
+            className={`slide signup ${!isLogin ? "active" : ""}`}
+          >
             Signup
           </label>
           <div className="slider-tab"></div>
@@ -93,13 +99,18 @@ const LoginSignup = () => {
                 <input type="password" placeholder="Password" required />
               </div>
               <div className="field">
-                <input type="password" placeholder="Confirm Password" required />
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  required
+                />
               </div>
               <div className="field">
                 <select required>
                   <option value="">Select User Role</option>
                   <option value="user">User</option>
-                  <option value="superuser">Superuser</option> {/* Changed from admin to superuser */}
+                  <option value="superuser">Superuser</option>{" "}
+                  {/* Changed from admin to superuser */}
                 </select>
               </div>
               <div className="field btn">

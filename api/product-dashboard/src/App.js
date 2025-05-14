@@ -4,10 +4,8 @@ import { useNavigate } from "react-router-dom"; // <-- Import useNavigate
 import "./LoginSignup.css";
 import Sidebar from "./components/SideBar";
 import LogoutButton from "./components/LogoutButton";
-import Wallet from "./components/Wallet"; 
+import Wallet from "./components/Wallet";
 import ManageProducts from "./components/ManageProducts";
-
-
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -17,10 +15,38 @@ const App = () => {
   const [dashboardTab, setDashboardTab] = useState("landing");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
- 
 
 
+  
+
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  useEffect(() => {
+    const loadBalance = async () => {
+      if (user?.userId) {
+        const balance = await fetchWalletBalance(user.userId);
+        setWalletBalance(balance);
+      }
+    };
+    loadBalance();
+  }, [user]);
+
+  const fetchWalletBalance = async (userId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5219/api/wallet/${userId}`
+      );
+      if (!response.ok) throw new Error("Wallet not found.");
+      const data = await response.json();
+      return data.balance ?? 0;
+    } catch (error) {
+      console.error("Failed to fetch wallet balance:", error);
+      return 0;
+    }
+  };
 
   // const toggleCart = () => {
   //   setShowCart((prev) => !prev);
@@ -28,21 +54,27 @@ const App = () => {
 
   // const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
   const [currentPage, setCurrentPage] = useState(1);
-const productsPerPage = 3;
+  const productsPerPage = 3;
 
-// Calculate indexes
-const indexOfLastProduct = currentPage * productsPerPage;
-const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+  // Calculate indexes
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = products.slice(
+    indexOfFirstProduct,
+    indexOfLastProduct
+  );
 
-// Total pages
-const totalPages = Math.ceil(products.length / productsPerPage);
+  // Total pages
+  const totalPages = Math.ceil(products.length / productsPerPage);
 
-  const [walletBalance, setWalletBalance] = useState(0.0); 
-
-  const centerTabs = ["landing", "add", "byCategory", "update","wallet","manageproducts"];
-
- 
+  const centerTabs = [
+    "landing",
+    "add",
+    "byCategory",
+    "update",
+    "wallet",
+    "manageproducts",
+  ];
 
   const backgroundStyle = {
     backgroundImage: "url(/images/background_image.jpg)",
@@ -59,103 +91,187 @@ const totalPages = Math.ceil(products.length / productsPerPage);
       : "flex-start",
   };
 
- 
-
-  
   let cartItems = {}; // Key: productId, Value: { product, quantity }
 
   function handleAddToCart(product) {
     const id = product.productId;
-  
+
     if (cartItems[id]) {
       cartItems[id].quantity += 1;
+      updateCartUI();
+      alert(`Added "${product.productName}" to cart!`);
+    } else if (product.available == "no") {
+      alert(`${product.productName} is currently unavailable.`);
+      updateCartUI();
+      alert(`Cannot add "${product.productName}" to cart!`);
     } else {
       cartItems[id] = { product, quantity: 1 };
+      updateCartUI();
+      alert(`Added "${product.productName}" to cart!`);
     }
-  
-    updateCartUI();
-    alert(`Added "${product.productName}" to cart!`);
   }
-  
+
   function updateCartUI() {
     const cartList = document.querySelector(".cart-list");
+
     const totalPriceElement = document.getElementById("total-price");
-  
+
     if (!cartList || !totalPriceElement) return;
-  
+
     cartList.innerHTML = ""; // Clear previous items
     let totalPrice = 0;
     let totalItemCount = 0;
-  
+
     Object.values(cartItems).forEach(({ product, quantity }) => {
       const li = document.createElement("li");
       li.className = "cart-item";
-  
+
       const unitPrice = product.unitPrice || 0;
       const subtotal = unitPrice * quantity;
       totalPrice += subtotal;
       totalItemCount += quantity;
-  
+
       li.innerHTML = `
       <div class="cart-image-wrapper">
-  <img src="${product.productImage || ""}" alt="${product.productName}" class="cart-product-image" />
-  <span class="quantity-badge">${quantity}</span>
-</div>
-
-        <div class="cart-product-details">
-          <span class="cart-product-name">${product.productName}</span>
-          <span class="cart-product-price">R${unitPrice.toFixed(2)} </span>
-          <div class="cart-quantity-controls">
-            <button class="decrease-btn" data-id="${product.productId}">−</button>
-            <span class="quantity">${quantity}</span>
-            <button class="increase-btn" data-id="${product.productId}">+</button>
-          </div>
-          <button class="remove-item-btn" data-id="${product.productId}">Remove</button>
+        <img src="${product.productImage || ""}" alt="${
+        product.productName
+      }" class="cart-product-image" />
+        <span class="quantity-badge">${quantity}</span>
+      </div>
+    
+      <div class="cart-product-details">
+        <span class="cart-product-name">${product.productName}</span>
+        <span class="cart-product-price">R${unitPrice.toFixed(2)}</span>
+        <div class="cart-quantity-controls">
+          <button class="decrease-btn" data-id="${product.productId}">−</button>
+          <span class="quantity">${quantity}</span>
+          <button class="increase-btn" data-id="${product.productId}" ${
+        quantity >= product.stock ? "disabled" : ""
+      }>+</button>
         </div>
-      `;
-  
+        <button class="remove-item-btn" data-id="${
+          product.productId
+        }">Remove</button>
+      </div>
+    `;
+
       cartList.appendChild(li);
     });
-  
+
     totalPriceElement.textContent = `R${totalPrice.toFixed(2)}`;
     const cartCountElement = document.querySelector(".cart-count");
     if (cartCountElement) cartCountElement.textContent = totalItemCount;
-  
+
     // Bind "+" and "−" buttons
     cartList.querySelectorAll(".increase-btn").forEach((btn) => {
-      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, 1));
+      btn.addEventListener("click", () =>
+        changeItemQuantity(btn.dataset.id, 1)
+      );
     });
     cartList.querySelectorAll(".decrease-btn").forEach((btn) => {
-      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, -1));
+      btn.addEventListener("click", () =>
+        changeItemQuantity(btn.dataset.id, -1)
+      );
     });
     cartList.querySelectorAll(".remove-item-btn").forEach((btn) => {
       btn.addEventListener("click", () => removeItemFromCart(btn.dataset.id));
     });
   }
-  
-  function changeItemQuantity(productId, delta) {
+
+  async function changeItemQuantity(productId, delta) {
     const item = cartItems[productId];
     if (!item) return;
-  
-    item.quantity += delta;
-  
-    if (item.quantity <= 0) {
-      delete cartItems[productId];
+
+    const currentQty = item.quantity;
+    const newQty = currentQty + delta;
+
+    // Fetch product data from the server to get the available quantity
+    try {
+      const response = await fetch(
+        `http://localhost:5219/api/product/${productId}`
+      );
+
+      // Check if the response is ok (status 200-299)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch product data: ${response.statusText}`);
+      }
+
+      // Parse the response JSON to get the product data
+      const productData = await response.json();
+
+      const availableQuantity = productData.quantity; // This is now 'quantity', not 'stock'
+      const productName = productData.productName;
+
+      // Limit the quantity based on available quantity (from the database)
+      if (newQty <= 0) {
+        if (
+          window.confirm(`Remove "${item.product.productName}" from the cart?`)
+        ) {
+          delete cartItems[productId];
+        }
+      } else if (productData.available == "no") {
+        alert(`${productName} is currently unavailable.`);
+      } else if (newQty > availableQuantity) {
+        alert(
+          `Only ${availableQuantity} of ${productName} available in stock.`
+        );
+      } else {
+        item.quantity = newQty;
+      }
+
+      updateCartUI();
+    } catch (err) {
+      console.error("Failed to fetch product quantity:", err);
+      alert("Unable to verify product quantity. Please try again.");
     }
-  
-    updateCartUI();
   }
-  
+
   function removeItemFromCart(productId) {
-    delete cartItems[productId];
-    updateCartUI();
+    const item = cartItems[productId];
+    if (!item) return;
+
+    if (
+      window.confirm(
+        `Are you sure you want to remove "${item.product.productName}" from the cart?`
+      )
+    ) {
+      delete cartItems[productId];
+      updateCartUI();
+    }
   }
-  
+
   function toggleCart() {
     const cartBox = document.getElementById("cart-items");
     cartBox?.classList.toggle("hidden");
   }
-  
+
+  function handleCheckout() {
+    const delivery = prompt(
+      "How would you like to receive your order? (A = Pickup, B = Delivery)"
+    );
+    const deliveryMethod =
+      delivery?.toUpperCase() === "A" ? "Pickup" : "Delivery";
+
+    fetch("/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deliveryMethod }),
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.message) {
+          alert(res.message);
+          cartItems = {};
+          updateCartUI();
+        } else {
+          alert("Error during checkout.");
+        }
+      })
+      .catch((err) => {
+        console.error("Checkout error", err);
+        alert("Failed to complete checkout.");
+      });
+  }
 
   const [productDetails, setProductDetails] = useState({
     productName: "",
@@ -225,13 +341,20 @@ const totalPages = Math.ceil(products.length / productsPerPage);
 
   const navigate = useNavigate(); // <-- Initialize the navigate function
 
-  const handleLogout = () => {
-    localStorage.clear();
-    setIsLoggedIn(false);
-    setToken(null);
-    navigate("/login");
-  };
-  
+const handleLogout = () => {
+  localStorage.clear();
+  setIsLoggedIn(false);
+  setToken(null);
+
+  // Clear login and register form inputs
+  setLoginDetails({ username: "", password: "" });
+  setRegisterDetails({ username: "", email: "", password: "", confirmPassword: "" });
+
+  // Redirect to login page
+  navigate("/login");
+};
+
+
   useEffect(() => {
     const validateToken = async () => {
       const savedToken = localStorage.getItem("token");
@@ -289,50 +412,54 @@ const totalPages = Math.ceil(products.length / productsPerPage);
       handleError(error);
     }
   };
-  const fetchActiveProducts=async()=>{
-    try{
-      const response=await axios.get("http://localhost:5219/api/product/activeProducts");
+  const fetchActiveProducts = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5219/api/product/activeProducts"
+      );
       setProducts(response.data);
-    
-    } catch(error){
+    } catch (error) {
       handleError(error);
     }
-  }
+  };
+  
   const fetchActiveProductsByCategory = async (categoryName) => {
     const category = categoryName || searchCategory;
-  
+
     if (!category.trim()) {
       setErrorMessage("Category name is required.");
       setProducts([]);
       return;
     }
-  
+
     try {
       // Fetch all active products
-      const response = await axios.get("http://localhost:5219/api/product/activeProducts");
-  
+      const response = await axios.get(
+        "http://localhost:5219/api/product/activeProducts"
+      );
+
       // Ensure you have category mappings loaded
       if (categories.length === 0) {
         // Optional: You could fetch categories here if not already available
         setErrorMessage("Category data is missing.");
         return;
       }
-  
+
       // Find the matching category ID
       const matchedCategory = categories.find(
         (c) => c.categoryName.toLowerCase() === category.toLowerCase()
       );
-  
+
       if (!matchedCategory) {
         setErrorMessage("Category not found.");
         setProducts([]);
         return;
       }
-  
+
       const filtered = response.data.filter(
         (product) => product.categoryId === matchedCategory.categoryId
       );
-  
+
       if (filtered.length === 0) {
         setErrorMessage("No active products found for that category.");
         setProducts([]);
@@ -346,9 +473,6 @@ const totalPages = Math.ceil(products.length / productsPerPage);
       setProducts([]);
     }
   };
-  
-  
-  
 
   const fetchProductById = async () => {
     if (!searchId.trim()) return setErrorMessage("Product ID is required.");
@@ -509,7 +633,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
   //     setErrorMessage("Please enter a valid Product ID.");
   //     return;
   //   }
-  
+
   //   const {
   //     productName,
   //     productDescription,
@@ -519,7 +643,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
   //     categoryId,
   //     imageFile, // This should already be a Cloudinary URL
   //   } = productDetails;
-  
+
   //   if (
   //     !productName ||
   //     !productDescription ||
@@ -535,7 +659,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
   //     setErrorMessage("Please fill all fields correctly, including image.");
   //     return;
   //   }
-  
+
   //   const formData = new FormData();
   //   formData.append("productName", productName);
   //   formData.append("productDescription", productDescription);
@@ -544,7 +668,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
   //   formData.append("quantity", quantity);
   //   formData.append("categoryId", categoryId);
   //   formData.append("productImage", imageFile);
-  
+
   //   try {
   //     const res = await axios.put(
   //       `http://localhost:5219/api/product/${productId}`,
@@ -564,7 +688,6 @@ const totalPages = Math.ceil(products.length / productsPerPage);
   //     setErrorMessage("Failed to update product.");
   //   }
   // };
-  
 
   {
     /* logic for deleting a product via product id and name as well as a prompt to make sure the user wants to delete the product*/
@@ -633,17 +756,17 @@ const totalPages = Math.ceil(products.length / productsPerPage);
         "http://localhost:5219/api/user/login",
         loginDetails
       );
-  
+
       console.log(response.data); // Debug: confirm full data is received
-  
+
       if (response.data && response.data.token && response.data.user) {
         setToken(response.data.token);
         setIsLoggedIn(true);
-        
+
         // ✅ Store both token and user object
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user", JSON.stringify(response.data.user));
-  
+
         alert("Login successful");
         setDashboardTab("all"); // Navigate to the landing/dashboard page
       } else {
@@ -657,7 +780,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
       setLoginDetails({ username: "", password: "" });
     }
   };
-  
+
   {
     /* logic for handling registration and redirecting to the login page when registration is successful*/
   }
@@ -728,7 +851,7 @@ const totalPages = Math.ceil(products.length / productsPerPage);
               isOpen={isSidebarOpen} // Pass down isSidebarOpen to control sidebar visibility
               setIsOpen={setIsSidebarOpen} // Pass setIsOpen to Sidebar to control the sidebar open/close state
             />
-              {/* <Routes>
+            {/* <Routes>
           <Route
             path="/manageproducts"
             element={<ManageProducts />}  // Directly render ManageProducts here
@@ -739,7 +862,6 @@ const totalPages = Math.ceil(products.length / productsPerPage);
               <button className="cart-button wallet-button">
                 💰 R{walletBalance.toFixed(2)}
               </button>
-            
 
               <button className="cart-button" onClick={toggleCart}>
                 🛒 <span class="cart-count">0</span>
@@ -749,8 +871,11 @@ const totalPages = Math.ceil(products.length / productsPerPage);
             <div id="cart-items" className="cart-items hidden">
               <h3>Your Cart</h3>
               <ul class="cart-list"></ul>
-              <div class="cart-total">
-                Total: <span id="total-price">R0.00</span>
+              <div class="cart-footer">
+                <button class="checkout-btn" onClick={handleCheckout}>
+                  Checkout
+                </button>
+                <span id="total-price">R0.00</span>
               </div>
             </div>
 
@@ -766,11 +891,9 @@ const totalPages = Math.ceil(products.length / productsPerPage);
             )}
 
             <LogoutButton onLogout={handleLogout} />
-          
+
             {dashboardTab === "wallet" && <Wallet />}
             {dashboardTab === "manageproducts" && <ManageProducts />}
-
-
           </>
         )}
         {!isLoggedIn ? (
@@ -948,37 +1071,42 @@ const totalPages = Math.ceil(products.length / productsPerPage);
                 </div>
               )}
               {/* logic for searching a product via the product category*/}
-       {/* Search by category name (manual input) */}
-{activeTab === "byCategory" && (
-  <div>
-    <input
-      type="text"
-      placeholder="Enter Category Name"
-      value={searchCategory}
-      onChange={(e) => setSearchCategory(e.target.value)}
-    />
-    <button onClick={() => fetchActiveProductsByCategory(searchCategory)}>
-      Search
-    </button>
-  </div>
-)}
+              {/* Search by category name (manual input) */}
+              {activeTab === "byCategory" && (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Enter Category Name"
+                    value={searchCategory}
+                    onChange={(e) => setSearchCategory(e.target.value)}
+                  />
+                  <button
+                    onClick={() =>
+                      fetchActiveProductsByCategory(searchCategory)
+                    }
+                  >
+                    Search
+                  </button>
+                </div>
+              )}
 
-{/* Display product table if a relevant tab is active */}
-{["all", "byId", "byCategory"].includes(activeTab) && (
-  <>
-    {/* Category Buttons visible in "all" tab */}
-    {activeTab === "all" && (
-      <div className="category-toolbar">
-        <div className="category-buttons">
-          <button onClick={fetchActiveProducts}>All</button>
-          {categories.map((cat) => (
-            <button
-              key={cat.categoryId}
-              onClick={() => fetchActiveProductsByCategory(cat.categoryName)}
-            >
-              {cat.categoryName}
-            </button>
-
+              {/* Display product table if a relevant tab is active */}
+              {["all", "byId", "byCategory"].includes(activeTab) && (
+                <>
+                  {/* Category Buttons visible in "all" tab */}
+                  {activeTab === "all" && (
+                    <div className="category-toolbar">
+                      <div className="category-buttons">
+                        <button onClick={fetchActiveProducts}>All</button>
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.categoryId}
+                            onClick={() =>
+                              fetchActiveProductsByCategory(cat.categoryName)
+                            }
+                          >
+                            {cat.categoryName}
+                          </button>
                         ))}
                       </div>
                       {/* <input
@@ -1021,8 +1149,11 @@ const totalPages = Math.ceil(products.length / productsPerPage);
                             </button>
                           </div>
                         </div>
+                        
                       ))
+                      
                     )}
+                
                   </div>
                 </>
               )}
@@ -1078,8 +1209,8 @@ const totalPages = Math.ceil(products.length / productsPerPage);
                     </table>
                   </div> */}
 
-                  {/* Pagination Controls */}
-                  {/* <div className="pagination">
+              {/* Pagination Controls */}
+              {/* <div className="pagination">
                     <button
                       onClick={() =>
                         setCurrentPage((prev) => Math.max(prev - 1, 1))
