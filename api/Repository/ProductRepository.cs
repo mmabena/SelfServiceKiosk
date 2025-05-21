@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Models;
-using api.Dtos;
+using api.DTOs;
 using api.Interfaces;
 using CloudinaryDotNet;
 

@@ -1,6 +1,6 @@
 
 using System.ComponentModel.DataAnnotations.Schema;
-using api.Dtos;
+using api.DTOs;
 
 
 namespace api.Models
@@ -12,7 +12,7 @@ namespace api.Models
     {  public int CategoryId { get; set; }  
         public string CategoryName { get; set; }
 
-        // Navigation Property
+     
         public ICollection<Product> Products { get; set; }  
 
          public ProductCategoryDto ToProductCategoryDto()

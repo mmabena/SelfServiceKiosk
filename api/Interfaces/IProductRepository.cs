@@ -1,8 +1,7 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using api.Dtos;
+
+using api.DTOs;
 using api.Models;
-using Microsoft.AspNetCore.Http;
+
 
 namespace api.Interfaces
 {

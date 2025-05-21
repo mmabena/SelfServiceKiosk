@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Models;
-using api.Dtos;
 using api.Interfaces;
+using api.DTOs;
 
 
 
@@ -240,6 +240,64 @@ namespace api.Controllers
 
             return Ok(new { message = "Product successfully updated.", product = existingProduct });
         }
+        // POST: api/product/release/{id}
+        [HttpPost("release/{id}")]
+        public async Task<IActionResult> ReleaseReservedProduct([FromRoute] int id, [FromBody] ReserveRequestDto request)
+        {
+            if (request.Quantity <= 0)
+                return BadRequest("Quantity to release must be greater than zero.");
+
+            var product = await _productRepo.GetByIdAsync(id);
+
+            if (product == null)
+                return NotFound("Product not found.");
+
+            product.Quantity += request.Quantity;
+
+            // Optionally mark available again
+            if (product.Available == "no" && product.Quantity > 0)
+                product.Available = "yes";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = $"Released {request.Quantity} unit(s) of '{product.ProductName}'.",
+                updatedStock = product.Quantity
+            });
+        }
+
+        // POST: api/product/reserve/{id}
+        [HttpPost("reserve/{id}")]
+        public async Task<IActionResult> ReserveProductQuantity([FromRoute] int id, [FromBody] ReserveRequestDto request)
+        {
+            if (request.Quantity <= 0)
+                return BadRequest("Quantity to reserve must be greater than zero.");
+
+            var product = await _productRepo.GetByIdAsync(id);
+
+            if (product == null)
+                return NotFound("Product not found.");
+
+            if (product.Available == "no" || product.Quantity < request.Quantity)
+                return BadRequest($"Only {product.Quantity} unit(s) of '{product.ProductName}' available.");
+
+            // Subtract the reserved quantity
+            product.Quantity -= request.Quantity;
+
+            // Optionally, mark it unavailable if quantity hits zero
+            if (product.Quantity == 0)
+                product.Available = "no";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = $"Reserved {request.Quantity} unit(s) of '{product.ProductName}'.",
+                remainingStock = product.Quantity
+            });
+        }
+
 
 
     }

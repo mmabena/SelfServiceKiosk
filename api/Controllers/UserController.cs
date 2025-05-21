@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using api.Data;
 using api.Models;
-using api.Dtos;
+using api.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;

@@ -1,7 +1,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using api.Dtos;
+using api.DTOs;
 using api.Data;
 using api.Models;
 

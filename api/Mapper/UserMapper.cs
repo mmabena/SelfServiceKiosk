@@ -1,6 +1,6 @@
 
 
-using api.Dtos;
+using api.DTOs;
 using api.Models;
 
 namespace api.Mapper
