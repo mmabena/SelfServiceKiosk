@@ -6,6 +6,7 @@ import Sidebar from "./components/SideBar";
 import LogoutButton from "./components/LogoutButton";
 import Wallet from "./components/Wallet";
 import ManageProducts from "./components/ManageProducts";
+import Transactions from "./components/Transactions";
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -18,7 +19,6 @@ const App = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [cartItems, setCartItems] = useState({});
 
-
   const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
@@ -30,6 +30,13 @@ const App = () => {
     };
     loadBalance();
   }, [user]);
+  useEffect(() => {
+    console.log("cartItems changed", cartItems);
+  }, [cartItems]);
+
+  useEffect(() => {
+    console.log("products changed", products);
+  }, [products]);
 
   const fetchWalletBalance = async (userId) => {
     try {
@@ -51,7 +58,7 @@ const App = () => {
 
   // const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
   const [currentPage, setCurrentPage] = useState(1);
-  const productsPerPage = 3;
+  const productsPerPage = 8;
 
   // Calculate indexes
   const indexOfLastProduct = currentPage * productsPerPage;
@@ -88,368 +95,423 @@ const App = () => {
       : "flex-start",
   };
 
-  // let cartItems = {}; // Key: productId, Value: { product, quantity }
+  // Assuming you have this global cartItems object to track cart state
+  // let cartItems = {};
 
+  // Add product to cart
   async function handleAddToCart(product) {
     const id = product.productId;
-  
+
     try {
-      // 1. Fetch updated product data
+      // 1. Check latest stock
       const response = await fetch(`http://localhost:5219/api/product/${id}`);
       if (!response.ok) throw new Error("Failed to fetch product data.");
       const latestProduct = await response.json();
-  
+
       if (latestProduct.available === "no" || latestProduct.quantity <= 0) {
         alert(`${latestProduct.productName} is currently unavailable.`);
         updateCartUI();
         return;
       }
-  
-      const currentQty = cartItems[id]?.quantity || 0;
+
+      const currentQty = Object.values(cartItems)
+        .filter((item) => item.productId === id)
+        .reduce((sum, item) => sum + item.quantity, 0);
+
       if (currentQty >= latestProduct.quantity) {
-        alert(`Only ${latestProduct.quantity} of "${latestProduct.productName}" available in stock.`);
+        alert(
+          `Only ${latestProduct.quantity} of "${latestProduct.productName}" available in stock.`
+        );
         return;
       }
-  
+
       // 2. Reserve stock
       await fetch(`http://localhost:5219/api/product/reserve/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: 1 }),
       });
-  
+
       const user = JSON.parse(localStorage.getItem("user"));
-      const newCart = {
-        userId: user.userId,
-        dateCreated: new Date().toISOString()
-      };
-  
-      // 3. Create new cart
-      const createCartRes = await fetch(`http://localhost:5219/api/cart/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newCart),
-      });
-  
-      if (!createCartRes.ok) throw new Error("Failed to create cart.");
-      const createdCart = await createCartRes.json();
-      const cartId = createdCart.cartId;
-  
+      if (!user?.userId) throw new Error("User not logged in");
+
+      // 3. Get or create active cart
+      let cartId;
+      const activeCartRes = await fetch(
+        `http://localhost:5219/api/cart/active/${user.userId}`
+      );
+      if (activeCartRes.ok) {
+        const activeCart = await activeCartRes.json();
+        cartId = activeCart.cartId;
+      } else {
+        const createCartRes = await fetch(
+          `http://localhost:5219/api/cart/create`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.userId }),
+          }
+        );
+        if (!createCartRes.ok) throw new Error("Failed to create cart");
+        const newCart = await createCartRes.json();
+        cartId = newCart.cartId;
+      }
+
       // 4. Add product to the cart
-      await fetch(`http://localhost:5219/api/cart/add-product`, {
+      const addRes = await fetch(`http://localhost:5219/api/cart/addProduct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          cartProductId: 0, // backend auto-generates
+          cartId,
           productId: id,
-          cartId: cartId,
           quantity: 1,
+          product: latestProduct,
         }),
       });
-  
-      // 5. Update local cart
-      cartItems[id] = {
-        product: latestProduct,
-        quantity: (cartItems[id]?.quantity || 0) + 1,
-        cartId: cartId,
-      };
-  
-      setProducts((prevProducts) =>
-        prevProducts.map((p) =>
+      if (!addRes.ok) throw new Error("Failed to add product to cart");
+      const addedCartProduct = await addRes.json();
+
+      const cartProductId = addedCartProduct.cartProductId;
+      const cartIdFromResponse = addedCartProduct.cartId;
+      // 5. Update local state
+      if (!cartItems[id]) {
+        cartItems[id] = {
+          product: latestProduct,
+          quantity: 1,
+          cartId: cartIdFromResponse,
+          productId: id,
+          cartProductId, // still useful for backend updates
+        };
+      } else {
+        cartItems[id].quantity += 1;
+      }
+
+      setProducts((prev) =>
+        prev.map((p) =>
           p.productId === id ? { ...p, quantity: p.quantity - 1 } : p
         )
       );
-  
+
       updateCartUI();
       alert(`Added "${latestProduct.productName}" to cart!`);
-  
     } catch (err) {
       console.error("Add to cart failed:", err);
       alert(err.message || "Failed to add product to cart.");
     }
   }
-  
-  
-  
+
   function updateCartUI() {
     const cartList = document.querySelector(".cart-list");
     const totalPriceElement = document.getElementById("total-price");
-  
+
     if (!cartList || !totalPriceElement) return;
-  
+
     cartList.innerHTML = ""; // Clear previous items
     let totalPrice = 0;
     let totalItemCount = 0;
-  
-    Object.values(cartItems).forEach(({ product, quantity }) => {
-      const li = document.createElement("li");
-      li.className = "cart-item";
-  
-      const unitPrice = product.unitPrice || 0;
-      const subtotal = unitPrice * quantity;
-      totalPrice += subtotal;
-      totalItemCount += quantity;
-  
-      li.innerHTML = `
+
+    Object.entries(cartItems).forEach(
+      ([productId, { product, quantity, cartProductId }]) => {
+        const unitPrice = product.unitPrice || 0;
+        const subtotal = unitPrice * quantity;
+        totalPrice += subtotal;
+        totalItemCount += quantity;
+
+        const li = document.createElement("li");
+        li.className = "cart-item";
+
+        li.innerHTML = `
+      <div class="cart-item-layout" style="display: flex; align-items: flex-start; gap: 12px;">
         <div class="cart-image-wrapper">
-          <img src="${product.productImage || ""}" alt="${product.productName}" class="cart-product-image" />
+          <img src="${product.productImage || ""}" alt="${
+          product.productName
+        }" class="cart-product-image" />
           <span class="quantity-badge">${quantity}</span>
         </div>
-  
+
         <div class="cart-product-details">
           <span class="cart-product-name">${product.productName}</span>
           <span class="cart-product-price">R${unitPrice.toFixed(2)}</span>
-  
+
           <div class="cart-quantity-controls">
-            <button class="decrease-btn" data-id="${product.productId}">−</button>
+            <button class="decrease-btn" data-id="${productId}">−</button>
             <span class="quantity">${quantity}</span>
-            <button class="increase-btn" data-id="${product.productId}" ${
-        quantity >= product.quantity ? "disabled" : ""
-      }>+</button>
+            <button class="increase-btn" data-id="${productId}" ${
+          quantity >= product.quantity ? "disabled" : ""
+        }>+</button>
           </div>
-  
-          <button class="remove-item-btn" data-id="${product.productId}">Remove</button>
+
+          <button class="remove-item-btn" data-id="${productId}">Remove</button>
         </div>
-      `;
-  
-      cartList.appendChild(li);
-    });
-  
+      </div>
+    `;
+
+        cartList.appendChild(li);
+      }
+    );
+
     totalPriceElement.textContent = `R${totalPrice.toFixed(2)}`;
     const cartCountElement = document.querySelector(".cart-count");
     if (cartCountElement) cartCountElement.textContent = totalItemCount;
-  
-    // Bind "+" and "−" buttons
-    cartList.querySelectorAll(".increase-btn").forEach((btn) => {
-      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, 1));
-    });
-    cartList.querySelectorAll(".decrease-btn").forEach((btn) => {
-      btn.addEventListener("click", () => changeItemQuantity(btn.dataset.id, -1));
-    });
-    cartList.querySelectorAll(".remove-item-btn").forEach((btn) => {
-      btn.addEventListener("click", () => removeItemFromCart(btn.dataset.id));
-    });
-  }
-  
 
-  async function changeItemQuantity(productId, delta) {
+    if (!cartList.hasEventListener) {
+      cartList.addEventListener("click", (event) => {
+        const btn = event.target;
+        const id = btn.dataset.id;
+
+        if (!id) return;
+
+        if (btn.classList.contains("increase-btn")) {
+          changeItemQuantity(id, "increase");
+        }
+
+        if (btn.classList.contains("decrease-btn")) {
+          changeItemQuantity(id, "decrease");
+        }
+
+        if (btn.classList.contains("remove-item-btn")) {
+          removeItemFromCart(id);
+        }
+      });
+
+      cartList.hasEventListener = true;
+    }
+  }
+
+  async function changeItemQuantity(productId, action) {
     const item = cartItems[productId];
-    if (!item) return;
+    if (!item) {
+      console.warn(`Item with productId ${productId} not found in cartItems.`);
+      return;
+    }
   
     const currentQty = item.quantity;
-    const newQty = currentQty + delta;
+    let newQty = currentQty;
+  
+    if (action === "increase") newQty += 1;
+    if (action === "decrease") newQty -= 1;
+  
+    if (newQty <= 0) {
+      const confirmRemove = window.confirm(
+        `Remove "${item.product.productName}" from the cart?`
+      );
+      if (!confirmRemove) return;
+      return removeItemFromCart(productId);
+    }
   
     try {
       const user = JSON.parse(localStorage.getItem("user"));
+      if (!user?.userId) throw new Error("User not logged in.");
+  
+      // Get latest stock info
       const response = await fetch(`http://localhost:5219/api/product/${productId}`);
       if (!response.ok) throw new Error("Failed to fetch product data.");
-  
       const productData = await response.json();
-      const availableQuantity = productData.quantity;
   
-      if (newQty <= 0) {
-        const confirmDelete = window.confirm(`Remove "${productData.productName}" from the cart?`);
-        if (!confirmDelete) return;
+      const totalStock = productData.quantity + currentQty;
   
-        // Call remove function if quantity goes to zero
-        return removeItemFromCart(productId);
-      }
-  
-      // If new quantity exceeds available stock
-      if (newQty > availableQuantity + currentQty) {
-        alert(`Only ${availableQuantity + currentQty} of "${productData.productName}" available in stock.`);
+      if (newQty > totalStock) {
+        alert(`Only ${totalStock} available in stock.`);
         return;
       }
   
-      // Adjust backend stock based on the delta (positive for adding, negative for removing)
-      const endpoint = delta > 0 ? "reserve" : "release";
+      // Reserve or release 1 unit
+      const endpoint = action === "increase" ? "reserve" : "release";
       await fetch(`http://localhost:5219/api/product/${endpoint}/${productId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: Math.abs(delta) }),
+        body: JSON.stringify({ quantity: 1 }),
       });
   
-      // Update backend cart quantity
-      await fetch(`http://localhost:5219/api/cart/update-product-quantity`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.userId,
-          productId: parseInt(productId),
-          quantity: newQty,
-        }),
-      });
+      // Update backend cart
+      const updateRes = await fetch(
+        `http://localhost:5219/api/cart/update-product-quantity`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.userId,
+            productId,
+            quantity: newQty,
+          }),
+        }
+      );
   
-      // Update local cart quantity
+      if (!updateRes.ok) throw new Error("Failed to update quantity in cart.");
+  
+      // Update frontend state
       item.quantity = newQty;
-  
-      // Update frontend product stock
-      setProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.productId === parseInt(productId)
-            ? { ...p, quantity: p.quantity - delta }
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.productId === productId
+            ? {
+                ...p,
+                quantity: action === "increase" ? p.quantity - 1 : p.quantity + 1,
+              }
             : p
         )
       );
-  
-      // Update cart UI
       updateCartUI();
-    } catch (err) {
-      console.error("Failed to update cart quantity:", err);
-      alert("Error updating item quantity. Try again.");
+    } catch (error) {
+      console.error("Error updating cart item quantity:", error);
+      alert(error.message || "Error updating item quantity.");
     }
   }
   
-  
-  
-  async function removeItemFromCart(productId) {
-    const item = cartItems[productId];
+
+  async function removeItemFromCart(cartProductId) {
+    const item = cartItems[cartProductId];
     if (!item) return;
-  
-    if (!window.confirm(`Are you sure you want to remove "${item.product.productName}" from the cart?`)) return;
-  
+
+    if (!window.confirm(`Remove "${item.product.productName}" from the cart?`))
+      return;
+
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-  
-      // Remove product from backend cart
-      await fetch(`http://localhost:5219/api/cart/remove-product`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.userId,
-          productId: parseInt(productId),
-        }),
-      });
-  
-      // Release reserved stock from the backend
-      await fetch(`http://localhost:5219/api/product/release/${productId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: item.quantity }),
-      });
-  
-      // Update frontend product stock
-      setProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.productId === parseInt(productId)
+      if (!user?.userId) throw new Error("No user found");
+
+      // 1. Remove product from backend cart
+      const removeRes = await fetch(
+        `http://localhost:5219/api/cart/remove-product`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cartId: item.cartId,
+            productId: item.productId,
+          }),
+        }
+      );
+      if (!removeRes.ok) throw new Error("Failed to remove product from cart");
+
+      // 2. Release stock in backend
+      await fetch(
+        `http://localhost:5219/api/product/release/${item.productId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantity: item.quantity }),
+        }
+      );
+
+      // setCartItems(prev => {
+      //   const newCartItems = { ...prev };
+      //   delete newCartItems[cartProductId];
+      //   console.log("Removing cartProductId from state, newCartItems:", newCartItems);
+      //   return newCartItems;
+      // });
+
+      delete cartItems[cartProductId];
+      updateCartUI();
+
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.productId === item.productId
             ? { ...p, quantity: p.quantity + item.quantity }
             : p
         )
       );
-  
-      // Remove item from local cart state
-      delete cartItems[productId];
-  
-      // Update cart UI
-      updateCartUI();
+      console.log("Products updated");
+
+      // updateCartUI();
+
+      alert(
+        `Removed "${item.product.productName}" from cart and restored ${item.quantity} to stock.`
+      );
     } catch (err) {
       console.error("Failed to remove item from cart:", err);
-      alert("Something went wrong while removing the item.");
+      alert("Failed to remove item.");
     }
   }
-  
-  
-  
-  
 
+  // Toggle cart display
   function toggleCart() {
     const cartBox = document.getElementById("cart-items");
     cartBox?.classList.toggle("hidden");
   }
 
+  // Checkout handler
   async function handleCheckout() {
-    const delivery = prompt(
-      "How would you like to receive your order? (A = Pickup, B = Delivery)"
-    );
-    const deliveryMethod = delivery?.toUpperCase() === "A" ? "Pickup" : "Delivery";
-  
+    let delivery;
+    while (true) {
+      delivery = prompt(
+        "How would you like to receive your order? (A = Pickup, B = Delivery)"
+      );
+      if (!delivery) {
+        alert("Delivery option is required.");
+        continue;
+      }
+
+      const normalized = delivery.trim().toUpperCase();
+      if (normalized === "A" || normalized === "B") {
+        delivery = normalized;
+        break;
+      }
+
+      alert("Invalid input. Please enter 'A' for Pickup or 'B' for Delivery.");
+    }
+
+    const deliveryMethod = delivery === "A" ? "Pickup" : "Delivery";
+
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || !user.userId) return alert("User not logged in.");
-  
-    // Fetch the user's wallet data using userId
-    let userWallet = null;
+
+    let wallet;
     try {
-      const walletResponse = await fetch(`http://localhost:5219/api/wallet/${user.userId}`);
-      if (!walletResponse.ok) {
-        throw new Error("Failed to fetch wallet data.");
-      }
-      userWallet = await walletResponse.json();
-    } catch (error) {
-      console.error("Error fetching wallet:", error);
-      return alert("Unable to fetch wallet data.");
+      const res = await fetch(
+        `http://localhost:5219/api/wallet/${user.userId}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch wallet.");
+      wallet = await res.json();
+    } catch (err) {
+      console.error("Wallet error:", err);
+      return alert("Failed to fetch wallet.");
     }
-  
-    // Check if wallet exists and has balance
-    if (!userWallet || userWallet.balance === undefined) {
-      return alert("User wallet is not available or missing balance.");
-    }
-  
-    // Calculate total
-    let totalAmount = 0;
-    const productsToCheckout = [];
-  
+
+    if (!wallet || wallet.balance == null) return alert("Wallet not found.");
+
+    let total = 0;
     for (const item of Object.values(cartItems)) {
-      const { product, quantity, cartId } = item;
-      totalAmount += product.unitPrice * quantity;
-      productsToCheckout.push({ cartId });
+      total += item.product.unitPrice * item.quantity;
     }
-  
-    // Check wallet balance
-    if (userWallet.balance < totalAmount) {
-      alert("Insufficient funds in your wallet.");
-      return;
+
+    if (wallet.balance < total) {
+      return alert("Insufficient funds in your wallet.");
     }
-  
-    const checkoutPayload = {
-      cartId: productsToCheckout[0].cartId, // Assuming 1 cart per add
-      dateCreated: new Date().toISOString(),
-      user: {
-        ...user,
-        transactions: [
-          {
-            transactionId: 0,
-            transactionDate: new Date().toISOString(),
-            orderType: deliveryMethod,
-            totalAmount: totalAmount,
-            user: user.username,
-            cart: "string"
-          }
-        ]
-      },
-      transaction: {
-        transactionId: 0,
-        transactionDate: new Date().toISOString(),
-        orderType: deliveryMethod,
-        totalAmount: totalAmount,
-        user: user.username,
-        cart: "string"
-      }
-    };
-  
+
     try {
-      const checkoutResponse = await fetch("http://localhost:5219/api/transaction/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request: checkoutPayload }),
-      });
-  
-      if (!checkoutResponse.ok) {
-        const errData = await checkoutResponse.json();
+      const checkoutPayload = {
+        userId: user.userId,
+        deliveryMethod,
+      };
+
+      const res = await fetch(
+        "http://localhost:5219/api/transaction/checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(checkoutPayload),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json();
         throw new Error(errData.message || "Checkout failed.");
       }
-  
-      const result = await checkoutResponse.json();
+
+      const result = await res.json();
       alert(result.message || "Checkout successful!");
-      cartItems = {}; // Clear the cart
-      updateCartUI(); // Update UI after checkout
-  
+      for (const key in cartItems) {
+        delete cartItems[key];
+      }
+      localStorage.removeItem("cartItems");
+      updateCartUI();
     } catch (err) {
-      console.error("Checkout error:", err);
+      console.error("Checkout failed:", err);
       alert(err.message || "Failed to complete checkout.");
     }
   }
-  
-  
-  
 
   const [productDetails, setProductDetails] = useState({
     productName: "",
@@ -703,112 +765,112 @@ const App = () => {
     }
   };
 
-  const handleProductInputChange = (e) => {
-    const { name, value } = e.target;
-    setProductDetails((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  // const handleProductInputChange = (e) => {
+  //   const { name, value } = e.target;
+  //   setProductDetails((prev) => ({
+  //     ...prev,
+  //     [name]: value,
+  //   }));
+  // };
 
-  {
-    /* logic for saving the actual file image in jpg format and returnng a URL to put in the database as the database for product image is a string*/
-  }
-  const [uploading, setUploading] = useState(false); // Add this state to track upload progress
+  // {
+  /* logic for saving the actual file image in jpg format and returnng a URL to put in the database as the database for product image is a string*/
+  // }
+  // const [uploading, setUploading] = useState(false); // Add this state to track upload progress
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0]; // Get the file from the input
-    if (file && (file.type === "image/jpeg" || file.type === "image/jpg")) {
-      // Allow both jpeg and jpg
-      try {
-        setUploading(true); // Set uploading state
-        const formData = new FormData();
-        formData.append("file", file); // Use the selected file
-        formData.append("upload_preset", "unsigned_preset");
-        formData.append("folder", "samples/ecommerce");
+  // const handleFileChange = async (e) => {
+  //   const file = e.target.files[0]; // Get the file from the input
+  //   if (file && (file.type === "image/jpeg" || file.type === "image/jpg")) {
+  //     // Allow both jpeg and jpg
+  //     try {
+  //       setUploading(true); // Set uploading state
+  //       const formData = new FormData();
+  //       formData.append("file", file); // Use the selected file
+  //       formData.append("upload_preset", "unsigned_preset");
+  //       formData.append("folder", "samples/ecommerce");
 
-        // Upload the image to Cloudinary
-        const response = await axios.post(
-          "https://api.cloudinary.com/v1_1/djmafre5k/image/upload",
-          formData
-        );
+  //       // Upload the image to Cloudinary
+  //       const response = await axios.post(
+  //         "https://api.cloudinary.com/v1_1/djmafre5k/image/upload",
+  //         formData
+  //       );
 
-        // Get the Cloudinary URL
-        const imageUrl = response.data.secure_url;
-        setProductDetails((prev) => ({ ...prev, imageFile: imageUrl }));
-        setUploading(false); // Set uploading state to false once done
-      } catch (error) {
-        console.error("Error uploading image to Cloudinary:", error);
-        setErrorMessage("Error uploading image.");
-        setUploading(false); // Reset uploading state
-      }
-    } else {
-      setErrorMessage("Only .jpg or .jpeg images are allowed.");
-      setProductDetails((prev) => ({ ...prev, imageFile: null }));
-    }
-  };
+  //       // Get the Cloudinary URL
+  //       const imageUrl = response.data.secure_url;
+  //       setProductDetails((prev) => ({ ...prev, imageFile: imageUrl }));
+  //       setUploading(false); // Set uploading state to false once done
+  //     } catch (error) {
+  //       console.error("Error uploading image to Cloudinary:", error);
+  //       setErrorMessage("Error uploading image.");
+  //       setUploading(false); // Reset uploading state
+  //     }
+  //   } else {
+  //     setErrorMessage("Only .jpg or .jpeg images are allowed.");
+  //     setProductDetails((prev) => ({ ...prev, imageFile: null }));
+  //   }
+  // };
 
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
+  // const handleAddProduct = async (e) => {
+  //   e.preventDefault();
 
-    const {
-      productName,
-      productDescription,
-      unitPrice,
-      available,
-      quantity,
-      categoryId,
-      imageFile, // This should now be a Cloudinary URL string
-    } = productDetails;
+  //   const {
+  //     productName,
+  //     productDescription,
+  //     unitPrice,
+  //     available,
+  //     quantity,
+  //     categoryId,
+  //     imageFile, // This should now be a Cloudinary URL string
+  //   } = productDetails;
 
-    if (
-      !productName ||
-      !productDescription ||
-      isNaN(unitPrice) ||
-      unitPrice <= 0 ||
-      !available ||
-      isNaN(quantity) ||
-      quantity <= 0 ||
-      isNaN(categoryId) ||
-      categoryId <= 0 ||
-      !imageFile // must have the uploaded image URL
-    ) {
-      setErrorMessage("Please fill all fields correctly, including image.");
-      return;
-    }
+  //   if (
+  //     !productName ||
+  //     !productDescription ||
+  //     isNaN(unitPrice) ||
+  //     unitPrice <= 0 ||
+  //     !available ||
+  //     isNaN(quantity) ||
+  //     quantity <= 0 ||
+  //     isNaN(categoryId) ||
+  //     categoryId <= 0 ||
+  //     !imageFile // must have the uploaded image URL
+  //   ) {
+  //     setErrorMessage("Please fill all fields correctly, including image.");
+  //     return;
+  //   }
 
-    console.log("ImageFile (Cloudinary URL):", imageFile);
+  //   console.log("ImageFile (Cloudinary URL):", imageFile);
 
-    const formData = new FormData();
-    formData.append("productName", productName);
-    formData.append("productDescription", productDescription);
-    formData.append("unitPrice", unitPrice);
-    formData.append("available", available);
-    formData.append("quantity", quantity);
-    formData.append("categoryId", categoryId);
-    formData.append("productImage", productDetails.imageFile); // this should be the Cloudinary URL
-    console.log("FormData before submitting:", formData);
+  //   const formData = new FormData();
+  //   formData.append("productName", productName);
+  //   formData.append("productDescription", productDescription);
+  //   formData.append("unitPrice", unitPrice);
+  //   formData.append("available", available);
+  //   formData.append("quantity", quantity);
+  //   formData.append("categoryId", categoryId);
+  //   formData.append("productImage", productDetails.imageFile); // this should be the Cloudinary URL
+  //   console.log("FormData before submitting:", formData);
 
-    try {
-      const res = await axios.post(
-        "http://localhost:5219/api/product/addProduct",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+  //   try {
+  //     const res = await axios.post(
+  //       "http://localhost:5219/api/product/addProduct",
+  //       formData,
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //           "Content-Type": "multipart/form-data",
+  //         },
+  //       }
+  //     );
 
-      console.log("Product added:", res.data);
-      alert("Product added successfully!");
-      clearForm();
-    } catch (err) {
-      console.error("Add product error:", err.response?.data || err.message);
-      setErrorMessage("Failed to add product.");
-    }
-  };
+  //     console.log("Product added:", res.data);
+  //     alert("Product added successfully!");
+  //     clearForm();
+  //   } catch (err) {
+  //     console.error("Add product error:", err.response?.data || err.message);
+  //     setErrorMessage("Failed to add product.");
+  //   }
+  // };
 
   // const handleUpdateProduct = async (productId) => {
   //   if (!productId || isNaN(productId)) {
@@ -874,21 +936,21 @@ const App = () => {
   {
     /* logic for deleting a product via product id and name as well as a prompt to make sure the user wants to delete the product*/
   }
-  const handleDeleteProduct = async (id, name) => {
-    if (!window.confirm(`Delete ${name}?`)) return;
+  // const handleDeleteProduct = async (id, name) => {
+  //   if (!window.confirm(`Delete ${name}?`)) return;
 
-    try {
-      await axios.delete(`http://localhost:5219/api/product/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      alert("Deleted successfully.");
-      fetchAllProducts();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  //   try {
+  //     await axios.delete(`http://localhost:5219/api/product/${id}`, {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+  //     alert("Deleted successfully.");
+  //     fetchAllProducts();
+  //   } catch (error) {
+  //     handleError(error);
+  //   }
+  // };
   {
     /* logic for handling server errors so user knows what the problem is*/
   }
@@ -1033,12 +1095,6 @@ const App = () => {
               isOpen={isSidebarOpen} // Pass down isSidebarOpen to control sidebar visibility
               setIsOpen={setIsSidebarOpen} // Pass setIsOpen to Sidebar to control the sidebar open/close state
             />
-            {/* <Routes>
-          <Route
-            path="/manageproducts"
-            element={<ManageProducts />}  // Directly render ManageProducts here
-          />
-        </Routes> */}
 
             <div class="cart-container">
               <button className="cart-button wallet-button">
@@ -1076,6 +1132,7 @@ const App = () => {
 
             {dashboardTab === "wallet" && <Wallet />}
             {dashboardTab === "manageproducts" && <ManageProducts />}
+            {dashboardTab === "transactions" && <Transactions />}
           </>
         )}
         {!isLoggedIn ? (
@@ -1279,25 +1336,23 @@ const App = () => {
                   {activeTab === "all" && (
                     <div className="category-toolbar">
                       <div className="category-buttons">
-                        <button onClick={fetchActiveProducts}>All</button>
+                      <button
+            onClick={() => {
+              fetchActiveProducts();
+              setCurrentPage(1); // Reset to first page
+            }}>All</button>
                         {categories.map((cat) => (
-                          <button
-                            key={cat.categoryId}
-                            onClick={() =>
-                              fetchActiveProductsByCategory(cat.categoryName)
-                            }
+                           <button
+                           key={cat.categoryId}
+                           onClick={() => {
+                             fetchActiveProductsByCategory(cat.categoryName);
+                             setCurrentPage(1); // Reset to first page on filter
+                           }}
                           >
                             {cat.categoryName}
                           </button>
                         ))}
                       </div>
-                      {/* <input
-                type="text"
-                className="category-search"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-              /> */}
                     </div>
                   )}
 
@@ -1305,7 +1360,7 @@ const App = () => {
                     {products.length === 0 ? (
                       <p>No products found.</p>
                     ) : (
-                      products.map((p) => (
+                      currentProducts.map((p) => (
                         <div className="product" key={p.productId}>
                           {p.productImage && (
                             <img
@@ -1318,10 +1373,12 @@ const App = () => {
                             <h3>{p.productName}</h3>
                             <p>{p.productDescription}</p>
                             <p>
+                              |Qty:{p.quantity}|  |
                               <strong>
-                                R{parseFloat(p.unitPrice).toFixed(2)}
-                              </strong>{" "}
-                              | Qty: {p.quantity} |
+
+                              R{parseFloat(p.unitPrice).toFixed(2)}
+                              </strong>{" "}|
+                              
                             </p>
                             <button
                               className="add-to-cart-btn"
@@ -1337,6 +1394,32 @@ const App = () => {
                       ))
                     )}
                   </div>
+                  {/* Pagination Controls */}
+                  {products.length > productsPerPage && (
+                    <div className="pagination">
+                      <button
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(prev - 1, 1))
+                        }
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(prev + 1, totalPages)
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
               {/*Logic for product management tab/layout*/}
@@ -1417,7 +1500,7 @@ const App = () => {
               )} */}
 
               {/* logic for adding a product referencing the product form*/}
-              {activeTab === "add" && (
+              {/* {activeTab === "add" && (
                 <form onSubmit={handleAddProduct} className="product-form">
                   <input
                     type="text"
@@ -1525,9 +1608,9 @@ const App = () => {
                     >
                       Search
                     </button>
-                  </div>
+                  </div> */}
 
-                  {/* <form onSubmit={handleUpdateProduct} className="product-form">
+              {/* <form onSubmit={handleUpdateProduct} className="product-form">
                     <input
                       type="text"
                       name="productName"
@@ -1602,10 +1685,10 @@ const App = () => {
 
                     <button type="submit">Update Product</button>
                   </form> */}
-                </>
-              )}
+              {/* </> */}
+              {/* )} */}
 
-              {activeTab === "delete" && (
+              {/* {activeTab === "delete" && (
                 <div className="products-list">
                   {products.length === 0 ? (
                     <p>No products found.</p>
@@ -1643,8 +1726,8 @@ const App = () => {
                       );
                     })
                   )}
-                </div>
-              )}
+               </div> 
+               )} */}
             </div>
           </>
         )}

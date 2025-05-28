@@ -2,87 +2,65 @@ import React, { useState, useEffect, useCallback } from "react";
 import "../LoginSignup.css";
 
 const Wallet = () => {
-  const [balance, setAmount] = useState(""); // User input amount
-  const [funds, setFunds] = useState(0); // Initial funds state
-  const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState([]); // To store the list of users if superuser
-  const [selectedUserId, setSelectedUserId] = useState(""); // For superuser to select the user
+  const [balance, setAmount] = useState(""); // User input for amount
+  const [funds, setFunds] = useState(0); // User's current wallet balance
+  const [loading, setLoading] = useState(false); // Loading state
+  const [users, setUsers] = useState([]); // List of users if superuser
+  const [selectedUserId, setSelectedUserId] = useState(""); // For superuser to select a user
+  const [searchTerm, setSearchTerm] = useState(""); // Search term for filtering users
+  const [filteredUsers, setFilteredUsers] = useState([]); // Filtered users based on search term
 
-  // Get logged-in user details
+  // Fetch logged-in user details from localStorage
   const user = JSON.parse(localStorage.getItem("user"));
-  const userId = user?.userId; // Correct key
-  const isSuperUser = user?.role === "SuperUser";
+  const userId = user?.userId; // User ID from the logged-in user
+  const isSuperUser = user?.role === "SuperUser"; // Check if the logged-in user is a superuser
 
-  const fetchWalletBalance = async (userId) => {
-    try {
-      const response = await fetch(
-        `http://localhost:5219/api/wallet/${userId}`
-      );
-      if (!response.ok) throw new Error("Wallet not found.");
-      const data = await response.json();
-      return data.balance ?? 0;
-    } catch (error) {
-      console.error("Failed to fetch wallet balance:", error);
-      return 0;
-    }
-  };
-
-  // Fetch wallet balance from the server
+  // Fetch the wallet balance from the server
   const fetchBalance = useCallback(async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5219/api/wallet/${userId}`
-      );
+      const response = await fetch(`http://localhost:5219/api/wallet/${userId}`);
       if (!response.ok) throw new Error("Wallet not found.");
       const data = await response.json();
-      setFunds(data.balance); // Update wallet balance state
+      setFunds(data.balance); // Set wallet balance
     } catch (error) {
       console.error("Failed to fetch balance:", error.message);
-      setFunds(0); // If fetching fails, reset to 0
+      setFunds(0); // Default to 0 if there's an error fetching balance
     }
   }, [userId]);
 
-  // Load balance on mount
-  useEffect(() => {
-    if (userId) {
-      fetchBalance();
-    }
-    if (isSuperUser) {
-      fetchUsers(); // If superuser, fetch the list of normal users
-    }
-  }, [userId, isSuperUser, fetchBalance]);
-
-  // Fetch the list of users for superuser
+  // Fetch the list of users if superuser
   const fetchUsers = async () => {
     try {
-      const response = await fetch("http://localhost:5219/api/user"); // Assuming endpoint to fetch users
+      const response = await fetch("http://localhost:5219/api/user");
       if (!response.ok) throw new Error("Failed to fetch users.");
       const data = await response.json();
-      setUsers(data); // Set the list of users
+      setUsers(data); // Set users list
     } catch (error) {
       console.error("Failed to fetch users:", error.message);
     }
   };
 
-  // Handle adding funds
+  // Load balance and fetch users if superuser
+  useEffect(() => {
+    if (userId) {
+      fetchBalance();
+    }
+    if (isSuperUser) {
+      fetchUsers(); // Fetch the list of users if superuser
+    }
+  }, [userId, isSuperUser, fetchBalance]);
+
+  // Handle adding funds to the wallet
   const handleAddAmount = async () => {
     const numericAmount = parseFloat(balance);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      alert("Please enter a valid amount.");
+
+    // Validation: check if the amount is valid
+    if (isNaN(numericAmount) || numericAmount <= 0 || numericAmount > 1000) {
+      alert("Enter a valid amount (1 - 1000).");
       return;
     }
 
-    if (numericAmount > 1000) {
-      alert("You can only add up to R1000.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Are you sure you want to add R${numericAmount.toFixed(
-        2
-      )} to your wallet?`
-    );
-
+    const confirmed = window.confirm(`Add R${numericAmount.toFixed(2)} to wallet?`);
     if (!confirmed) return;
 
     try {
@@ -91,71 +69,24 @@ const Wallet = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: userId,
+          userId: isSuperUser ? selectedUserId : userId, // Add funds to selected user if superuser
           balance: numericAmount,
         }),
       });
 
       if (!response.ok) throw new Error("Something went wrong!");
 
-      // Re-fetch balance after adding funds
-      await fetchBalance();
-      setAmount(""); // Clear the input field
-    } catch (err) {
-      alert(err.message || "Failed to add funds.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle superuser allocating funds to another user
-  const handleAddAmountToUser = async () => {
-    const numericAmount = parseFloat(balance);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-
-    if (numericAmount > 1000) {
-      alert("You can only add up to R1000.");
-      return;
-    }
-
-    if (!selectedUserId) {
-      alert("Please select a user to add funds to.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Are you sure you want to add R${numericAmount.toFixed(
-        2
-      )} to this user's wallet?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch("http://localhost:5219/api/wallet/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: selectedUserId, // Use selected user ID for superuser
-          balance: numericAmount,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Something went wrong!");
-
+      if (!isSuperUser) await fetchBalance(); // Refresh balance if not superuser
       alert("Funds added successfully!");
-      setAmount(""); // Clear the input field
+      setAmount(""); // Clear the amount field
     } catch (err) {
       alert(err.message || "Failed to add funds.");
     } finally {
-      setLoading(false);
+      setLoading(false); // Disable loading after the process finishes
     }
   };
 
+  // If the user is not logged in, show a message
   if (!userId) {
     return <p>⚠️ User not found. Please log in.</p>;
   }
@@ -168,7 +99,7 @@ const Wallet = () => {
           Current Balance: <strong>R{(funds ?? 0).toFixed(2)}</strong>
         </p>
 
-        {/* Display the input field */}
+        {/* Input field to enter amount */}
         <input
           type="number"
           placeholder="Enter amount (max R1000)"
@@ -178,33 +109,50 @@ const Wallet = () => {
           className="wallet-input"
         />
 
-        {/* If superuser, allow selection of another user */}
+        {/* If superuser, show the user selection input */}
         {isSuperUser && (
-          <div>
+          <div className="wallet-input-container">
             <label>Select User to Add Funds</label>
-            <select
+            <input
+              type="text"
               className="wallet-input"
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-            >
-              <option value="">Select User</option>
-              {users.length > 0 ? (
-                users.map((user) => (
-                  <option key={user.userId} value={user.userId}>
+              placeholder="Search user..."
+              value={searchTerm}
+              onChange={(e) => {
+                const term = e.target.value;
+                setSearchTerm(term);
+                const filtered = users.filter((user) =>
+                  `${user.firstName} ${user.lastName}`.toLowerCase().includes(term.toLowerCase())
+                );
+                setFilteredUsers(filtered); // Update filtered users based on search term
+              }}
+            />
+
+            {/* Display the dropdown only if there are filtered users */}
+            {filteredUsers.length > 0 && (
+              <div className="dropdown-menu">
+                {filteredUsers.map((user) => (
+                  <div
+                    key={user.userId}
+                    onClick={() => {
+                      setSelectedUserId(user.userId); // Select a user from the dropdown
+                      setSearchTerm(`${user.firstName} ${user.lastName}`); // Set the search term to the selected name
+                      setFilteredUsers([]); // Clear the filtered users list after selection
+                    }}
+                    className="dropdown-item"
+                  >
                     {user.firstName} {user.lastName}
-                  </option>
-                ))
-              ) : (
-                <option disabled>No users available</option>
-              )}
-            </select>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Button for adding funds to wallet */}
+        {/* Button to add funds to the wallet */}
         <button
-          onClick={isSuperUser ? handleAddAmountToUser : handleAddAmount}
-          disabled={loading}
+          onClick={handleAddAmount}
+          disabled={loading || (isSuperUser && !selectedUserId)} // Disable if loading or no user selected for superuser
         >
           {loading ? "Adding..." : "Add to Wallet"}
         </button>

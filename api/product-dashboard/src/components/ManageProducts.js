@@ -138,7 +138,7 @@ const ManageProducts = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-
+  
     const {
       productName,
       productDescription,
@@ -148,7 +148,7 @@ const ManageProducts = () => {
       categoryId,
       imageFile,
     } = productDetails;
-
+  
     if (
       !productName ||
       !productDescription ||
@@ -164,18 +164,18 @@ const ManageProducts = () => {
       setErrorMessage("Please fill all fields correctly.");
       return;
     }
-
-    // Check if a product with the same name already exists (case-insensitive)
+  
+    // Check for duplicate product name (case-insensitive)
     const duplicate = products.find(
       (p) =>
         p.productName.toLowerCase().trim() === productName.toLowerCase().trim()
     );
     if (duplicate) {
       setErrorMessage("A product with this name already exists.");
-      toast.error("Duplicate product.Cannot be added.");
+      toast.error("Duplicate product. Cannot be added.");
       return;
     }
-
+  
     const formData = new FormData();
     formData.append("productName", productName);
     formData.append("productDescription", productDescription);
@@ -184,7 +184,8 @@ const ManageProducts = () => {
     formData.append("quantity", quantity);
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
-
+    formData.append("isActive", true); // ✅ Automatically set isActive to true
+  
     try {
       await axios.post(
         "http://localhost:5219/api/product/addProduct",
@@ -196,14 +197,14 @@ const ManageProducts = () => {
           },
         }
       );
-
+  
       toast.success("Product added successfully!");
       clearForm();
-      setIsAddingProduct(false); // <-- Close the form
+      setIsAddingProduct(false); // Close the form
       fetchAllProducts();
     } catch (err) {
       console.error("Add error:", err.response?.data || err.message);
-
+  
       if (err.response?.status === 403) {
         toast.error("You are not authorized to perform this action.");
       } else {
@@ -211,6 +212,7 @@ const ManageProducts = () => {
       }
     }
   };
+  
 
   const handleUpdateProduct = async (productId) => {
     const token = localStorage.getItem("token");
@@ -309,7 +311,7 @@ const ManageProducts = () => {
               <th>Description</th>
               <th>Image URL</th>
               
-              <th>Price</th>
+              <th>Price (R)</th>
               <th>Quantity</th>
               <th>Active</th>
               <th>Actions</th>
@@ -326,7 +328,7 @@ const ManageProducts = () => {
                 <td>{product.productDescription}</td>
                 <td>{product.productImage}</td>
               
-                <td>{product.unitPrice}</td>
+                <td> R{product.unitPrice}.00</td>
                 <td>{product.quantity}</td>
                 <td>
                   <input
@@ -533,7 +535,7 @@ const ManageProducts = () => {
               onClick={() => {
                 clearForm();
               }}
-              style={{ marginLeft: "10px", backgroundColor: "#ccc" }}
+              style={{  backgroundColor: "#ccc" }}
             >
               Cancel
             </button>
@@ -647,7 +649,7 @@ const ManageProducts = () => {
               <input type="file" onChange={handleFileChange} />
               {uploading && <p>Uploading...</p>}
             </div>
-            <div className="form-group">
+            {/* <div className="form-group">
               <label>Status</label>
               <input
                 type="checkbox"
@@ -659,7 +661,7 @@ const ManageProducts = () => {
                   })
                 }
               />
-            </div>
+            </div> */}
             <button type="submit" className="btn-blue">Add Product</button>
             <button
               type="button"
@@ -668,8 +670,8 @@ const ManageProducts = () => {
                 setIsAddingProduct(false); // Hide form
                 clearForm(); // Optional: reset again
               }}
-              style={{ marginTop: "10px", backgroundColor: "#ccc" }}
-            >
+              style={{ marginTop: "10px", marginLeft: "10px", backgroundColor: "#ccc" }}
+              >
               Cancel
             </button>
           </form>

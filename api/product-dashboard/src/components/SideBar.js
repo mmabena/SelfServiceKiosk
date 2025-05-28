@@ -12,6 +12,7 @@ const Sidebar = ({ onMenuClick }) => {
 
   // Handle item click and navigation
   const handleItemClick = (tab) => {
+    console.log("Clicked tab:", tab);
     onMenuClick(tab);
 
     // Navigate to different pages based on the tab clicked
@@ -23,6 +24,8 @@ const Sidebar = ({ onMenuClick }) => {
       navigate("/add"); // Navigate to another page, such as Report
     } else if (tab === "all") {
       navigate("/all");
+    }else if(tab === "transactions"){
+      navigate("/transactions"); // Navigate to Transaction page
     }
   };
 
@@ -37,7 +40,7 @@ const Sidebar = ({ onMenuClick }) => {
       <ul>
         <li>
           <span className="menu-heading" onClick={() => handleItemClick("all")}>
-            Purchase Products
+            Product Purchase
           </span>
         </li>
         <li>
@@ -62,6 +65,14 @@ const Sidebar = ({ onMenuClick }) => {
             onClick={() => handleItemClick("report")}
           >
             Report
+          </span>
+        </li>
+        <li>
+          <span
+            className="menu-heading"
+            onClick={() => handleItemClick("transactions")}
+          >
+            Transaction History
           </span>
         </li>
       </ul>
