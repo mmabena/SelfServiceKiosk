@@ -120,7 +120,7 @@ public async Task<IActionResult> AddProductToCartAsync([FromBody] CartProductDto
     if (product == null)
         return BadRequest("Product not found.");
 
-    // Optional: check stock availability
+    // Check stock availability
      if (product.Quantity < request.Quantity)
        return BadRequest("Insufficient stock for the requested product quantity.");
 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "../LoginSignup.css";
 
 const Wallet = () => {
@@ -23,7 +25,7 @@ const Wallet = () => {
       const data = await response.json();
       setFunds(data.balance); // Set wallet balance
     } catch (error) {
-      console.error("Failed to fetch balance:", error.message);
+      toast.error("Failed to fetch balance:", error.message);
       setFunds(0); // Default to 0 if there's an error fetching balance
     }
   }, [userId]);
@@ -36,7 +38,7 @@ const Wallet = () => {
       const data = await response.json();
       setUsers(data); // Set users list
     } catch (error) {
-      console.error("Failed to fetch users:", error.message);
+      toast.error("Failed to fetch users:", error.message);
     }
   };
 
@@ -56,7 +58,7 @@ const Wallet = () => {
 
     // Validation: check if the amount is valid
     if (isNaN(numericAmount) || numericAmount <= 0 || numericAmount > 1000) {
-      alert("Enter a valid amount (1 - 1000).");
+      toast.error("Enter a valid amount (1 - 1000).");
       return;
     }
 
@@ -77,10 +79,13 @@ const Wallet = () => {
       if (!response.ok) throw new Error("Something went wrong!");
 
       if (!isSuperUser) await fetchBalance(); // Refresh balance if not superuser
-      alert("Funds added successfully!");
+      toast.success("Funds added successfully!");
       setAmount(""); // Clear the amount field
+
+      //force wallet refresh
+      await fetchBalance();
     } catch (err) {
-      alert(err.message || "Failed to add funds.");
+      toast.error(err.message || "Failed to add funds.");
     } finally {
       setLoading(false); // Disable loading after the process finishes
     }

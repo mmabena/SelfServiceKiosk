@@ -950,6 +950,7 @@ form .btn input[type="submit"] {
   position: fixed;
   top: 20px;
   right: 120px;
+  /* leave space to the left of logout button */
   z-index: 1100;
 }
 
@@ -966,6 +967,7 @@ form .btn input[type="submit"] {
 .cart-button:hover {
   background-color: white;
   color: #7f35b3;
+  /* Optional hover effect */
 }
 
 .cart-count {
@@ -982,9 +984,8 @@ form .btn input[type="submit"] {
   top: 70px;
   right: 20px;
   width: 320px;
-  height: 480px; /* Fixed height */
-  display: flex;
-  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
   background-color: white;
   border: 1px solid #ccc;
   border-radius: 10px;
@@ -1010,23 +1011,70 @@ form .btn input[type="submit"] {
   list-style: none;
   padding: 0;
   margin: 0;
-  overflow-y: auto;
-  flex-grow: 1; /* Scrollable section grows inside fixed-height container */
 }
 
 .cart-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  /* Stack items vertically */
+  align-items: left;
+  /* Center align the items */
   margin-bottom: 15px;
   padding-bottom: 10px;
   border-bottom: 1px solid #eee;
 }
 
+.cart-product-image {
+  width: 100%;
+  border-radius: 8px;
+  
+}
+
+.cart-product-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-product-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+  margin-top: 0;
+  /* Remove margin-top since it's unnecessary now */
+}
+
+.cart-product-price {
+  color: #777;
+  font-size: 0.95rem;
+}
+
+.remove-item-btn {
+  background-color: white;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.remove-item-btn:hover {
+  background-color: #d42f2f;
+}
+
+.cart-total {
+  font-weight: bold;
+  color: #7f35b3;
+  margin: 0;
+}
+
+
+/* Quantity badge on image */
 .cart-image-wrapper {
   position: relative;
+  display: inline-block;
   width: 80px;
-  flex-shrink: 0;
+  margin-top: 5px;
+  /* Optional: Add margin to create space if needed */
 }
 
 .cart-product-image {
@@ -1047,32 +1095,7 @@ form .btn input[type="submit"] {
   border: 1px solid #ccc;
 }
 
-.cart-product-details {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.cart-product-name {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 5px;
-  margin-top: 0;
-}
-
-.cart-product-price {
-  color: #777;
-  font-size: 0.95rem;
-  margin-bottom: 5px;
-}
-
-.cart-quantity-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
+/* Plain + / - buttons */
 .cart-quantity-controls button {
   background: none;
   color: black;
@@ -1082,32 +1105,11 @@ form .btn input[type="submit"] {
   cursor: pointer;
 }
 
-.remove-item-btn {
-  background-color: white;
-  color: black;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  padding: 5px 10px;
-}
-
-.remove-item-btn:hover {
-  background-color: #d42f2f;
-  color: white;
-}
-
-.cart-total {
-  text-align: right;
-  margin-top: 10px;
-  font-weight: bold;
-  color: #7f35b3;
-}
-
 .cart-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
+  padding: 12px 16px;
   border-top: 1px solid #ddd;
   background-color: #f9f9f9;
 }
@@ -1125,7 +1127,6 @@ form .btn input[type="submit"] {
 .checkout-btn:hover {
   background-color: #218838;
 }
-
 
 
 

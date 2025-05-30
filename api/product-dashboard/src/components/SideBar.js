@@ -1,41 +1,45 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Import useNavigate from react-router-dom
+import { useNavigate } from "react-router-dom";
 import "../LoginSignup.css";
+import { toast } from "react-toastify";
 
 const Sidebar = ({ onMenuClick }) => {
-  const [openMenus, setOpenMenus] = useState({
-    purchase: true,
-    manage: true,
-  });
+  const [reportOpen, setReportOpen] = useState(false);
+  const navigate = useNavigate();
 
-  const navigate = useNavigate(); // Initialize navigate function
-
-  // Handle item click and navigation
   const handleItemClick = (tab) => {
-    console.log("Clicked tab:", tab);
+    const user = JSON.parse(localStorage.getItem("user")); // Retrieve user from localStorage
+    const isSuperUser = user?.role?.toLowerCase() === "superuser";
+  
+    const restrictedTabs = ["manageproducts"]; // Tabs restricted to superusers
+  
+    if (restrictedTabs.includes(tab) && !isSuperUser) {
+      toast.error("You are not authorised to perform this action.");
+      return; // Stop execution if unauthorized
+    }
+
     onMenuClick(tab);
 
-    // Navigate to different pages based on the tab clicked
     if (tab === "manageproducts") {
-      navigate("/manageproducts"); // Navigate to the Manage Products page
+      navigate("/manageproducts");
     } else if (tab === "wallet") {
-      navigate("/wallet"); // Navigate to the Wallet page
+      navigate("/wallet");
     } else if (tab === "add") {
-      navigate("/add"); // Navigate to another page, such as Report
+      navigate("/add");
     } else if (tab === "all") {
       navigate("/all");
-    }else if(tab === "transactions"){
-      navigate("/transactions"); // Navigate to Transaction page
+    } else if (tab === "transactions") {
+      navigate("/transactions");
     }
+  };
+
+  const toggleReport = () => {
+    setReportOpen(!reportOpen);
   };
 
   return (
     <div className="sidebar fixed-open">
-      <img
-        src="/images/Logo_Option_2.jpg"
-        alt="Logo"
-        className="sidebar-logo"
-      />
+      <img src="/images/Logo_Option_2.jpg" alt="Logo" className="sidebar-logo" />
 
       <ul>
         <li>
@@ -44,36 +48,48 @@ const Sidebar = ({ onMenuClick }) => {
           </span>
         </li>
         <li>
-          <span
-            className="menu-heading"
-            onClick={() => handleItemClick("manageproducts")}
-          >
+          <span className="menu-heading" onClick={() => handleItemClick("manageproducts")}>
             Product Management
           </span>
         </li>
         <li>
-          <span
-            className="menu-heading"
-            onClick={() => handleItemClick("wallet")}
-          >
+          <span className="menu-heading" onClick={() => handleItemClick("wallet")}>
             Wallet
           </span>
         </li>
         <li>
           <span
             className="menu-heading"
-            onClick={() => handleItemClick("report")}
+            onClick={toggleReport}
+            style={{
+              cursor: "pointer",
+              userSelect: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
           >
             Report
+            <span style={{ fontSize: "0.7rem" }}>
+              {reportOpen ? "▲" : "▼"}
+            </span>
           </span>
-        </li>
-        <li>
-          <span
-            className="menu-heading"
-            onClick={() => handleItemClick("transactions")}
-          >
-            Transaction History
-          </span>
+          {reportOpen && (
+            <ul
+              className="submenu"
+              style={{ paddingLeft: "1.5rem", marginTop: "0.5rem" }}
+            >
+              <li>
+                <span
+                  className="menu-subitem"
+                  onClick={() => handleItemClick("transactions")}
+                  style={{ cursor: "pointer", color: "black" }}
+                >
+                  Transaction History
+                </span>
+              </li>
+            </ul>
+          )}
         </li>
       </ul>
     </div>

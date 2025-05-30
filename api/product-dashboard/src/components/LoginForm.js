@@ -1,6 +1,6 @@
 // src/LoginForm.js
 import React, { useState } from "react";
-import "./App.css";
+import "./LoginSignup.css"; // Import the CSS for styling
 
 const LoginForm = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState("");
