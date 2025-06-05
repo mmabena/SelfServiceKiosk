@@ -1,7 +1,5 @@
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.csproj.AssemblyReference.cache
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.AssemblyInfoInputs.cache
-C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.AssemblyInfo.cs
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.csproj.CoreCompileInputs.cache
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.MvcApplicationPartsAssemblyInfo.cs
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\obj\Debug\net9.0\api.MvcApplicationPartsAssemblyInfo.cache
@@ -10,6 +8,7 @@ C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\testhost
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\xunit.abstractions.dll
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\testhost.exe
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.Tests\obj\api.Tests.csproj.nuget.dgspec.json
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.Tests\obj\Debug\net9.0\api.Tests.sourcelink.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\api.Tests\obj\project.assets.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\appsettings.Development.json
 C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\bin\Debug\net9.0\appsettings.json

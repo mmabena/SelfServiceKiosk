@@ -335,11 +335,6 @@ const ManageProducts = () => {
                     type="checkbox"
                     checked={product.isActive} // Dynamically set based on the isActive value
                     onChange={() => toggleProductActive(product.productId)}
-                    // style={{
-                    //   appearance: "auto",
-                    //   width: "15px",
-                    //   height: "15px",
-                    // }} // Style adjustments
                   />
                 </td>
 
@@ -649,19 +644,6 @@ const ManageProducts = () => {
               <input type="file" onChange={handleFileChange} />
               {uploading && <p>Uploading...</p>}
             </div>
-            {/* <div className="form-group">
-              <label>Status</label>
-              <input
-                type="checkbox"
-                checked={productDetails.isActive}
-                onChange={() =>
-                  setProductDetails({
-                    ...productDetails,
-                    isActive: !productDetails.isActive,
-                  })
-                }
-              />
-            </div> */}
             <button type="submit" className="btn-blue">Add Product</button>
             <button
               type="button"

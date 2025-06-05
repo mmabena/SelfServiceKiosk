@@ -15,7 +15,7 @@ public static class TransactionMapper
             OrderType = transaction.OrderType,
             TotalAmount = transaction.TotalAmount,
             User = transaction.User?.ToUserDto(),
-            Cart = transaction.Cart?.ToCartDto(includeTransaction: false) // prevent circular reference
+            Cart = transaction.Cart?.ToCartDto(includeTransaction: false) 
         };
     }
 }

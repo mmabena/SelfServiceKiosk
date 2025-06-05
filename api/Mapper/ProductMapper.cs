@@ -9,7 +9,7 @@ namespace api.Mapper
 {
     return new ProductDto
     {
-        //ProductId = productModel.ProductId,
+       
         ProductName = productModel.ProductName,
         ProductDescription = productModel.ProductDescription,
         UnitPrice = productModel.UnitPrice,

@@ -1,0 +1,6 @@
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.csproj.AssemblyReference.cache
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.AssemblyInfoInputs.cache
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.AssemblyInfo.cs
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.csproj.CoreCompileInputs.cache
+C:\Users\MMkhatshane\Documents\SelfServiceKioskAPI\api\api.Tests\obj\Debug\net9.0\api.Tests.sourcelink.json

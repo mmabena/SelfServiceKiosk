@@ -9,6 +9,6 @@ namespace api.DTOs
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string Email { get; set; }
-        public string Role { get; set; }  // New field for Role (optional, could default to "user")
+        public string Role { get; set; }  
     }
 }

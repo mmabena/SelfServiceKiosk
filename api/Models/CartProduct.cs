@@ -1,7 +1,7 @@
 
-using System.ComponentModel.DataAnnotations;
+
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+
 
 
 namespace api.Models
@@ -10,9 +10,9 @@ namespace api.Models
 
 public class CartProduct
 {
-    public int CartProductId { get; set; } // PK, Identity
-    public int ProductId { get; set; }     // FK
-    public int CartId { get; set; }        // FK
+    public int CartProductId { get; set; }
+    public int ProductId { get; set; }    
+    public int CartId { get; set; }       
     public int Quantity { get; set; }
     public Cart Cart { get; set; }
     public Product Product { get; set; }

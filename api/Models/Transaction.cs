@@ -1,4 +1,4 @@
-// Transaction.cs
+
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace api.Models
@@ -16,6 +16,6 @@ namespace api.Models
 
         // Navigation
         public User User { get; set; }
-        public Cart Cart { get; set; }  // Singular: one-to-one
+        public Cart Cart { get; set; } 
     }
 }

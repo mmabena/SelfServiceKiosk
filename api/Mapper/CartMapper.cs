@@ -19,8 +19,8 @@ namespace api.Mapper
                     TransactionDate = cart.Transaction.TransactionDate,
                     OrderType = cart.Transaction.OrderType,
                     TotalAmount = cart.Transaction.TotalAmount,
-                    User = null,    // Avoid nesting back to full User or Cart
-                    Cart = null     // Prevent circular reference here
+                    User = null,   
+                    Cart = null     
                 }
                 : null
         };

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, {useRef, useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // <-- Import useNavigate
+import { useNavigate } from "react-router-dom"; 
 import "./LoginSignup.css";
 import Sidebar from "./components/SideBar";
 import LogoutButton from "./components/LogoutButton";
@@ -8,7 +8,10 @@ import Wallet from "./components/Wallet";
 import ManageProducts from "./components/ManageProducts";
 import Transactions from "./components/Transactions";
 import { ToastContainer } from "react-toastify";
+import { toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
+import ManageUsers from "./components/ManageUsers";
+
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -17,9 +20,11 @@ const App = () => {
   const [products, setProducts] = useState([]);
   const [dashboardTab, setDashboardTab] = useState("landing");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showCart, setShowCart] = useState(false);
+  const [showCart] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [cartItems, setCartItems] = useState({});
+  const [cartItems] = useState({});
+  const lastSelectedCategoryRef = useRef(null);
+
 
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -54,10 +59,7 @@ const App = () => {
     }
   };
 
-  // const toggleCart = () => {
-  //   setShowCart((prev) => !prev);
-  // };
-  // const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 8;
 
@@ -349,6 +351,7 @@ if (checkoutBtn) {
   
       // Update local cart
       item.quantity = newQuantity;
+      updateCartUI();
   
       // Refresh stock
       const updatedProductRes = await fetch(`http://localhost:5219/api/product/${productId}`);
@@ -426,6 +429,7 @@ if (checkoutBtn) {
 
 // Updated handleCheckout to receive delivery option from global state
 async function handleCheckout() {
+  
   // Use global deliveryOption variable instead of prompt
   const deliveryMethod = deliveryOption === "pickup" ? "Pickup" : "Delivery";
 
@@ -491,7 +495,7 @@ async function handleCheckout() {
     alert(err.message || "Failed to complete checkout.");
   }
 }
-
+// eslint-disable-next-line
   const [productDetails, setProductDetails] = useState({
     productName: "",
     productDescription: "",
@@ -502,22 +506,6 @@ async function handleCheckout() {
     productImage: "no", // "yes" or "no"
     imageFile: null, // actual uploaded image file
   });
-  // const [searchQuery, setSearchQuery] = useState("");
-
-  // const handleSearchChange = (query) => {
-  //   setSearchQuery(query);
-  //   filterProducts(query);
-  // };
-
-  // const filterProducts = (query) => {
-  //   const lowerCaseQuery = query.toLowerCase();
-
-  //   const filtered = allProducts.filter((product) =>
-  //     product.name.toLowerCase().includes(lowerCaseQuery)
-  //   );
-
-  //   setDisplayedProducts(filtered);
-  // };
 
   const [searchId, setSearchId] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -538,10 +526,11 @@ async function handleCheckout() {
       console.error("Error fetching categories", err);
     }
   };
-  const categoryMap = categories.reduce((map, cat) => {
-    map[cat.categoryId] = cat.categoryName;
-    return map;
-  }, {});
+  // // eslint-disable-next-line
+  // const categoryMap = categories.reduce((map, cat) => {
+  //   map[cat.categoryId] = cat.categoryName;
+  //   return map;
+  // }, {});
 
   const [loginDetails, setLoginDetails] = useState({
     username: "",
@@ -556,6 +545,7 @@ async function handleCheckout() {
     role: "",
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // eslint-disable-next-line
   const [searchPerformed, setSearchPerformed] = useState(false); // Flag to track if search was performed
 
   const navigate = useNavigate(); // <-- Initialize the navigate function
@@ -627,14 +617,6 @@ async function handleCheckout() {
     }
   }, [isLoggedIn]);
 
-  const fetchAllProducts = async () => {
-    try {
-      const response = await axios.get("http://localhost:5219/api/product");
-      setProducts(response.data);
-    } catch (error) {
-      handleError(error);
-    }
-  };
   const fetchActiveProducts = async () => {
     try {
       const response = await axios.get(
@@ -646,56 +628,56 @@ async function handleCheckout() {
     }
   };
 
-  const fetchActiveProductsByCategory = async (categoryName) => {
-    const category = categoryName || searchCategory;
+ 
+const fetchActiveProductsByCategory = async (categoryName) => {
+  const category = categoryName || searchCategory;
 
-    if (!category.trim()) {
-      setErrorMessage("Category name is required.");
+  if (!category.trim()) {
+    toast.error("Category name is required.");
+    setProducts([]);
+    return;
+  }
+
+  try {
+    const response = await axios.get(
+      "http://localhost:5219/api/product/activeProducts"
+    );
+
+    if (!categories || categories.length === 0) {
+      toast.error("Category data is missing.");
+      return;
+    }
+
+    const matchedCategory = categories.find(
+      (c) => c.categoryName.toLowerCase() === category.toLowerCase()
+    );
+
+    if (!matchedCategory) {
+      toast.error("Category not found.");
       setProducts([]);
       return;
     }
 
-    try {
-      // Fetch all active products
-      const response = await axios.get(
-        "http://localhost:5219/api/product/activeProducts"
-      );
+    const filtered = response.data.filter(
+      (product) => product.categoryId === matchedCategory.categoryId
+    );
 
-      // Ensure you have category mappings loaded
-      if (categories.length === 0) {
-        // Optional: You could fetch categories here if not already available
-        setErrorMessage("Category data is missing.");
-        return;
-      }
+    setProducts(filtered); // Always update state, even if empty
 
-      // Find the matching category ID
-      const matchedCategory = categories.find(
-        (c) => c.categoryName.toLowerCase() === category.toLowerCase()
-      );
-
-      if (!matchedCategory) {
-        setErrorMessage("Category not found.");
-        setProducts([]);
-        return;
-      }
-
-      const filtered = response.data.filter(
-        (product) => product.categoryId === matchedCategory.categoryId
-      );
-
-      if (filtered.length === 0) {
-        setErrorMessage("No active products found for that category.");
-        setProducts([]);
-      } else {
-        setProducts(filtered);
-        setErrorMessage("");
-      }
-    } catch (error) {
-      console.error("Error fetching active products by category:", error);
-      setErrorMessage("Error fetching products.");
-      setProducts([]);
+    if (filtered.length === 0) {
+      // Force the toast to show by dismissing previous and showing a new one
+      toast.dismiss("no-products");
+      toast.info(`No active products found in '${matchedCategory.categoryName}'.`, {
+        toastId: `no-products-${Date.now()}` // make toastId unique
+      });
     }
-  };
+
+  } catch (error) {
+    console.error("Error fetching active products by category:", error);
+    toast.error("Error fetching products.");
+    setProducts([]);
+  }
+};
 
   const fetchProductById = async () => {
     if (!searchId.trim()) return setErrorMessage("Product ID is required.");
@@ -721,230 +703,23 @@ async function handleCheckout() {
     }
   };
 
-  const fetchProductsByCategory = async (categoryName) => {
-    const category = categoryName || searchCategory;
-    if (!category.trim()) {
-      return setErrorMessage("Category name is required.");
-    }
-
-    try {
-      const response = await axios.get(
-        `http://localhost:5219/api/product/byCategory?name=${category}`
-      );
-      if (response.data.length === 0) {
-        setErrorMessage("No products found for that category.");
-        setProducts([]);
-      } else {
-        setProducts(response.data);
-        setErrorMessage("");
-      }
-    } catch (error) {
-      setErrorMessage("Error fetching products.");
-      setProducts([]);
-    }
-  };
-
-  // const handleProductInputChange = (e) => {
-  //   const { name, value } = e.target;
-  //   setProductDetails((prev) => ({
-  //     ...prev,
-  //     [name]: value,
-  //   }));
-  // };
-
-  // {
-  /* logic for saving the actual file image in jpg format and returnng a URL to put in the database as the database for product image is a string*/
-  // }
-  // const [uploading, setUploading] = useState(false); // Add this state to track upload progress
-
-  // const handleFileChange = async (e) => {
-  //   const file = e.target.files[0]; // Get the file from the input
-  //   if (file && (file.type === "image/jpeg" || file.type === "image/jpg")) {
-  //     // Allow both jpeg and jpg
-  //     try {
-  //       setUploading(true); // Set uploading state
-  //       const formData = new FormData();
-  //       formData.append("file", file); // Use the selected file
-  //       formData.append("upload_preset", "unsigned_preset");
-  //       formData.append("folder", "samples/ecommerce");
-
-  //       // Upload the image to Cloudinary
-  //       const response = await axios.post(
-  //         "https://api.cloudinary.com/v1_1/djmafre5k/image/upload",
-  //         formData
-  //       );
-
-  //       // Get the Cloudinary URL
-  //       const imageUrl = response.data.secure_url;
-  //       setProductDetails((prev) => ({ ...prev, imageFile: imageUrl }));
-  //       setUploading(false); // Set uploading state to false once done
-  //     } catch (error) {
-  //       console.error("Error uploading image to Cloudinary:", error);
-  //       setErrorMessage("Error uploading image.");
-  //       setUploading(false); // Reset uploading state
-  //     }
-  //   } else {
-  //     setErrorMessage("Only .jpg or .jpeg images are allowed.");
-  //     setProductDetails((prev) => ({ ...prev, imageFile: null }));
-  //   }
-  // };
-
-  // const handleAddProduct = async (e) => {
-  //   e.preventDefault();
-
-  //   const {
-  //     productName,
-  //     productDescription,
-  //     unitPrice,
-  //     available,
-  //     quantity,
-  //     categoryId,
-  //     imageFile, // This should now be a Cloudinary URL string
-  //   } = productDetails;
-
-  //   if (
-  //     !productName ||
-  //     !productDescription ||
-  //     isNaN(unitPrice) ||
-  //     unitPrice <= 0 ||
-  //     !available ||
-  //     isNaN(quantity) ||
-  //     quantity <= 0 ||
-  //     isNaN(categoryId) ||
-  //     categoryId <= 0 ||
-  //     !imageFile // must have the uploaded image URL
-  //   ) {
-  //     setErrorMessage("Please fill all fields correctly, including image.");
-  //     return;
-  //   }
-
-  //   console.log("ImageFile (Cloudinary URL):", imageFile);
-
-  //   const formData = new FormData();
-  //   formData.append("productName", productName);
-  //   formData.append("productDescription", productDescription);
-  //   formData.append("unitPrice", unitPrice);
-  //   formData.append("available", available);
-  //   formData.append("quantity", quantity);
-  //   formData.append("categoryId", categoryId);
-  //   formData.append("productImage", productDetails.imageFile); // this should be the Cloudinary URL
-  //   console.log("FormData before submitting:", formData);
-
-  //   try {
-  //     const res = await axios.post(
-  //       "http://localhost:5219/api/product/addProduct",
-  //       formData,
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           "Content-Type": "multipart/form-data",
-  //         },
-  //       }
-  //     );
-
-  //     console.log("Product added:", res.data);
-  //     alert("Product added successfully!");
-  //     clearForm();
-  //   } catch (err) {
-  //     console.error("Add product error:", err.response?.data || err.message);
-  //     setErrorMessage("Failed to add product.");
-  //   }
-  // };
-
-  // const handleUpdateProduct = async (productId) => {
-  //   if (!productId || isNaN(productId)) {
-  //     setErrorMessage("Please enter a valid Product ID.");
-  //     return;
-  //   }
-
-  //   const {
-  //     productName,
-  //     productDescription,
-  //     unitPrice,
-  //     available,
-  //     quantity,
-  //     categoryId,
-  //     imageFile, // This should already be a Cloudinary URL
-  //   } = productDetails;
-
-  //   if (
-  //     !productName ||
-  //     !productDescription ||
-  //     isNaN(unitPrice) ||
-  //     unitPrice <= 0 ||
-  //     !available ||
-  //     isNaN(quantity) ||
-  //     quantity < 0 ||
-  //     isNaN(categoryId) ||
-  //     categoryId <= 0 ||
-  //     !imageFile
-  //   ) {
-  //     setErrorMessage("Please fill all fields correctly, including image.");
-  //     return;
-  //   }
-
-  //   const formData = new FormData();
-  //   formData.append("productName", productName);
-  //   formData.append("productDescription", productDescription);
-  //   formData.append("unitPrice", unitPrice);
-  //   formData.append("available", available);
-  //   formData.append("quantity", quantity);
-  //   formData.append("categoryId", categoryId);
-  //   formData.append("productImage", imageFile);
-
-  //   try {
-  //     const res = await axios.put(
-  //       `http://localhost:5219/api/product/${productId}`,
-  //       formData,
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           "Content-Type": "multipart/form-data",
-  //         },
-  //       }
-  //     );
-  //     console.log("Product updated:", res.data);
-  //     alert("Product updated successfully!");
-  //     clearForm();
-  //   } catch (err) {
-  //     console.error("Update product error:", err.response?.data || err.message);
-  //     setErrorMessage("Failed to update product.");
-  //   }
-  // };
-
-  {
-    /* logic for deleting a product via product id and name as well as a prompt to make sure the user wants to delete the product*/
-  }
-  // const handleDeleteProduct = async (id, name) => {
-  //   if (!window.confirm(`Delete ${name}?`)) return;
-
-  //   try {
-  //     await axios.delete(`http://localhost:5219/api/product/${id}`, {
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //     });
-  //     alert("Deleted successfully.");
-  //     fetchAllProducts();
-  //   } catch (error) {
-  //     handleError(error);
-  //   }
-  // };
-  {
+ 
+  
     /* logic for handling server errors so user knows what the problem is*/
-  }
+  
   const handleError = (error) => {
+    toast.dismiss("main-error");
+  
     if (error.response?.status === 401) {
-      setErrorMessage("Unauthorized. Please log in.");
+      toast.error("Unauthorized. Please log in.", { toastId: "main-error" });
     } else if (error.response?.status === 404) {
-      setErrorMessage("Not found.");
+      toast.error("Not found.", { toastId: "main-error" });
     } else if (error.response?.status === 403) {
-      setErrorMessage("You are not authorized to perform this action");
+      toast.error("You are not authorized to perform this action.", { toastId: "main-error" });
     } else {
-      setErrorMessage("An error occurred.");
+      toast.error("An unexpected error occurred.", { toastId: "main-error" });
     }
   };
-
   const clearForm = () => {
     setProductDetails({
       productName: "",
@@ -969,9 +744,9 @@ async function handleCheckout() {
   const handleRegisterChange = (e) => {
     setRegisterDetails({ ...registerDetails, [e.target.name]: e.target.value });
   };
-  {
+  
     /* logic for handling the login and receiving & saving the user token for authorization*/
-  }
+  
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -1004,9 +779,9 @@ async function handleCheckout() {
     }
   };
 
-  {
+  
     /* logic for handling registration and redirecting to the login page when registration is successful*/
-  }
+  
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
@@ -1042,9 +817,9 @@ async function handleCheckout() {
       fetchProducts(); // <-- Optional: also re-fetch products if needed
     }
   }, [activeTab]);
-  {
+  
     /* logic to clear any output when the user chooses a different page/tab as well as ensuring for search that no products show until the search input has been returned*/
-  }
+  
   useEffect(() => {
     clearForm();
 
@@ -1057,6 +832,7 @@ async function handleCheckout() {
       setProducts([]); // Clear previous results
       setSearchPerformed(false); // Prevent showing products until search is done
     }
+    //eslint-disable-next-line
   }, [activeTab]);
   const handleMenuClick = (tab) => {
     setDashboardTab(tab);
@@ -1114,6 +890,7 @@ async function handleCheckout() {
             {dashboardTab === "wallet" && <Wallet />}
             {dashboardTab === "manageproducts" && <ManageProducts />}
             {dashboardTab === "transactions" && <Transactions />}
+            {dashboardTab=== "manageusers" && <ManageUsers/>}
             <ToastContainer position="top-right" autoClose={3000} />
 
             
@@ -1318,25 +1095,40 @@ async function handleCheckout() {
                 <>
                 
                   {/* Category Buttons visible in "all" tab */}
-                  {activeTab === "all" && (
-                    <div className="category-toolbar">
-                      <div className="category-buttons">
-                      <button
-            onClick={() => {
-              fetchActiveProducts();
-             
-              setCurrentPage(1); // Reset to first page
-            }}>All</button>
-                        {categories.map((cat) => (
-                           <button
-                           key={cat.categoryId}
-                           onClick={() => {
-                             fetchActiveProductsByCategory(cat.categoryName);
-                             setCurrentPage(1); // Reset to first page on filter
-                           }}
-                          >
-                            {cat.categoryName}
-                          </button>
+      {activeTab === "all" && (
+  <div className="category-toolbar">
+    <div className="category-buttons">
+      <button
+        className={`category-btn ${
+          lastSelectedCategoryRef.current === "All" ? "selected" : ""
+        }`}
+        onClick={() => {
+          lastSelectedCategoryRef.current = "All";
+          fetchActiveProducts();
+          setCurrentPage(1);
+        }}
+      >
+        All
+      </button>
+
+      {categories.map((cat) => (
+        <button
+          key={cat.categoryId}
+          className={`category-btn ${
+            lastSelectedCategoryRef.current === cat.categoryName
+              ? "selected"
+              : ""
+          }`}
+          onClick={() => {
+            lastSelectedCategoryRef.current = cat.categoryName;
+            fetchActiveProductsByCategory(cat.categoryName);
+            setCurrentPage(1);
+          }}
+        >
+          {cat.categoryName}
+        </button>
+                  
+                    
                         ))}
                       </div>
                     </div>
@@ -1408,312 +1200,7 @@ async function handleCheckout() {
                   )}
                 </>
               )}
-              {/*Logic for product management tab/layout*/}
-              {/* {activeTab === "manage" && (
-                <div className="product-table-container">
-                  <h2>All Products</h2>
-
-                  {errorMessage && (
-                    <p style={{ color: "red" }}>{errorMessage}</p>
-                  )}
-
-                  <div className="table-wrapper">
-                    <table className="product-table">
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-
-                          <th>Category</th>
-                          <th>Description</th>
-                          <th>Image URL</th>
-                          <th>Available</th>
-                          <th>Price</th>
-                          <th>Quantity</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentProducts.map((product) => (
-                          <tr key={product.productId}>
-                            <td>{product.productName}</td>
-
-                            <td>
-                              {categoryMap[product.categoryId] || "Unknown"}
-                            </td>
-                            <td>{product.productDescription}</td>
-                            <td>{product.productImage}</td>
-                            <td>{product.available}</td>
-                            <td>{product.unitPrice}</td>
-                            <td>{product.quantity}</td>
-                            <td>
-                              <button
-                                onClick={() =>
-                                  handleUpdateProduct(product.productId)
-                                }
-                              >
-                                Update
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div> */}
-
-              {/* Pagination Controls */}
-              {/* <div className="pagination">
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(prev - 1, 1))
-                      }
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </button>
-                    <span>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                      }
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )} */}
-
-              {/* logic for adding a product referencing the product form*/}
-              {/* {activeTab === "add" && (
-                <form onSubmit={handleAddProduct} className="product-form">
-                  <input
-                    type="text"
-                    name="productName"
-                    placeholder="Name"
-                    value={productDetails.productName}
-                    onChange={handleProductInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="productDescription"
-                    placeholder="Description"
-                    value={productDetails.productDescription}
-                    onChange={handleProductInputChange}
-                    required
-                  />
-                  <input
-                    type="number"
-                    name="unitPrice"
-                    placeholder="Price"
-                    value={productDetails.unitPrice}
-                    onChange={handleProductInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="available"
-                    placeholder="Availability"
-                    value={productDetails.available}
-                    onChange={handleProductInputChange}
-                    required
-                  />
-                  <input
-                    type="number"
-                    name="quantity"
-                    placeholder="Quantity"
-                    value={productDetails.quantity}
-                    onChange={handleProductInputChange}
-                    required
-                  />
-                  <select
-                    name="categoryId"
-                    value={productDetails.categoryId}
-                    onChange={handleProductInputChange}
-                  >
-                    <option value="1">Category 1</option>
-                    <option value="2">Category 2</option>
-                    <option value="3">Category 3</option>
-                  </select>
-
-                  {productDetails.productImage === "yes" && (
-                    <input
-                      type="file"
-                      onChange={handleFileChange}
-                      accept="image/jpeg"
-                    />
-                  )}
-
-                  <select
-                    name="productImage"
-                    value={productDetails.productImage}
-                    onChange={handleProductInputChange}
-                    required
-                  >
-                    <option value="">Include Product Image?</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-
-                  <button type="submit">Add Product</button>
-                </form>
-              )}
-
-              {activeTab === "update" && (
-                <>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="Enter Product ID"
-                      value={searchId}
-                      onChange={(e) => setSearchId(e.target.value)}
-                    />
-                    <button
-                      onClick={async () => {
-                        try {
-                          const response = await axios.get(
-                            `http://localhost:5219/api/product/${searchId}`
-                          );
-                          const product = response.data;
-                          setProductDetails({
-                            productName: product.productName,
-                            productDescription: product.productDescription,
-                            unitPrice: product.unitPrice,
-                            available: product.available,
-                            quantity: product.quantity,
-                            categoryId: product.categoryId,
-                            productImage: "no", // Default state for update
-                            imageFile: null,
-                          });
-                        } catch (error) {
-                          setErrorMessage("Product not found.");
-                        }
-                      }}
-                    >
-                      Search
-                    </button>
-                  </div> */}
-
-              {/* <form onSubmit={handleUpdateProduct} className="product-form">
-                    <input
-                      type="text"
-                      name="productName"
-                      placeholder="Name"
-                      value={productDetails.productName}
-                      onChange={handleProductInputChange}
-                      required
-                    />
-                    <input
-                      type="text"
-                      name="productDescription"
-                      placeholder="Description"
-                      value={productDetails.productDescription}
-                      onChange={handleProductInputChange}
-                      required
-                    />
-                    <input
-                      type="number"
-                      name="unitPrice"
-                      placeholder="Price"
-                      value={productDetails.unitPrice}
-                      onChange={handleProductInputChange}
-                      required
-                    />
-                    <input
-                      type="text"
-                      name="available"
-                      placeholder="Availability"
-                      value={productDetails.available}
-                      onChange={handleProductInputChange}
-                      required
-                    />
-                    <input
-                      type="number"
-                      name="quantity"
-                      placeholder="Quantity"
-                      value={productDetails.quantity}
-                      onChange={handleProductInputChange}
-                      required
-                    />
-                    <select
-                      name="categoryId"
-                      value={productDetails.categoryId}
-                      onChange={handleProductInputChange}
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map((cat) => (
-                        <option key={cat.categoryId} value={cat.categoryId}>
-                          {cat.categoryName}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      name="productImage"
-                      value={productDetails.productImage}
-                      onChange={handleProductInputChange}
-                      required
-                    >
-                      <option value="">Include Product Image?</option>
-                      <option value="yes">Yes</option>
-                      <option value="no">No</option>
-                    </select>
-
-                    {productDetails.productImage === "yes" && (
-                      <input
-                        type="file"
-                        onChange={handleFileChange}
-                        accept="image/jpeg"
-                      />
-                    )}
-
-                    <button type="submit">Update Product</button>
-                  </form> */}
-              {/* </> */}
-              {/* )} */}
-
-              {/* {activeTab === "delete" && (
-                <div className="products-list">
-                  {products.length === 0 ? (
-                    <p>No products found.</p>
-                  ) : (
-                    products.map((product) => {
-                      const baseUrl = "http://localhost:5219";
-                      const cleanImagePath =
-                        product.productImage
-                          ?.replace(/\\/g, "/")
-                          .replace("/images/", "") || "";
-                      const imageUrl = cleanImagePath.startsWith("http")
-                        ? cleanImagePath
-                        : `${baseUrl}/${cleanImagePath.replace(
-                            /^wwwroot\//,
-                            ""
-                          )}`;
-
-                      return (
-                        <div key={product.productId} className="product">
-                          <h4>{product.productName}</h4>
-                          {product.productImage && (
-                            <img src={imageUrl} alt="Product" />
-                          )}
-                          <button
-                            onClick={() =>
-                              handleDeleteProduct(
-                                product.productId,
-                                product.productName
-                              )
-                            }
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      );
-                    })
-                  )}
-               </div> 
-               )} */}
+            
             </div>
           </>
         )}

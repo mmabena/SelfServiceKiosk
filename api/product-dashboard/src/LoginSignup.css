@@ -946,6 +946,10 @@ form .btn input[type="submit"] {
   transform: scale(0.97);
 }
 
+.category-buttons button.selected {
+  border: 2px solid black;
+}
+
 .cart-container {
   position: fixed;
   top: 20px;

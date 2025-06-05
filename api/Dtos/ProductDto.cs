@@ -1,11 +1,11 @@
-using System;
+
 using System.ComponentModel.DataAnnotations;
 
 namespace api.DTOs
 {
     public class ProductDto
     {
-        public int? ProductId { get; set; } // Not required during creation
+        public int? ProductId { get; set; } 
 
         [Required(ErrorMessage = "Product name is required.")]
         [StringLength(50, ErrorMessage = "Product name cannot be longer than 50 characters.")]
@@ -28,7 +28,7 @@ namespace api.DTOs
         public string ProductImage { get; set; } 
 
         [Required(ErrorMessage = "Category ID is required.")]
-        public int CategoryId { get; set; } // Foreign key to Category
+        public int CategoryId { get; set; } 
         public bool IsActive {get;set;}
     }
 }

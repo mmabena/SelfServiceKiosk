@@ -12,7 +12,7 @@ namespace api.DTOs
         public string Email { get; set; }
         public string Role { get; set; }
 
-        // Optionally include other properties like Wallet, Carts, Transactions, etc.
+      
         public WalletDto Wallet { get; set; }
         public ICollection<CartDto> Carts { get; set; }
         public ICollection<TransactionDto> Transactions { get; set; }

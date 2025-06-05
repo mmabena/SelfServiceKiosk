@@ -3,9 +3,7 @@ using api.Data;
 using api.Models;
 using api.DTOs;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
-using System.Collections.Generic;
+
 
 namespace api.Controllers
 {

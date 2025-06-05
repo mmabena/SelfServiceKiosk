@@ -9,9 +9,9 @@ namespace api.Models
 
         public int? TransactionId { get; set; }
 
-        // Navigation
+       
         public User User { get; set; }
-        public Transaction Transaction { get; set; }  // Many-to-one back reference
+        public Transaction Transaction { get; set; }  
 
         public ICollection<CartProduct> CartProducts { get; set; }
     }

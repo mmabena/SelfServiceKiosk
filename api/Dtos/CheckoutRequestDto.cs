@@ -5,6 +5,6 @@ namespace api.DTOs
     public class CheckoutRequestDto
     {
          public int UserId { get; set; }
-        public string DeliveryMethod { get; set; } // "Pickup" or "Delivery"
+        public string DeliveryMethod { get; set; } 
     }
 }

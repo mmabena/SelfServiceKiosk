@@ -14,9 +14,13 @@ const Sidebar = ({ onMenuClick }) => {
     const restrictedTabs = ["manageproducts"]; // Tabs restricted to superusers
   
     if (restrictedTabs.includes(tab) && !isSuperUser) {
-      toast.error("You are not authorised to perform this action.");
-      return; // Stop execution if unauthorized
+      toast.dismiss("unauthorised-tab"); // Always dismiss first
+      toast.error("You are not authorised to perform this action.", {
+        toastId: "unauthorised-tab"
+      });
+      return;
     }
+    
 
     onMenuClick(tab);
 
@@ -30,6 +34,9 @@ const Sidebar = ({ onMenuClick }) => {
       navigate("/all");
     } else if (tab === "transactions") {
       navigate("/transactions");
+    }
+    else if (tab === "manageusers") {
+      navigate("/manageusers");
     }
   };
 
@@ -55,6 +62,11 @@ const Sidebar = ({ onMenuClick }) => {
         <li>
           <span className="menu-heading" onClick={() => handleItemClick("wallet")}>
             Wallet
+          </span>
+        </li>
+        <li>
+          <span className="menu-heading" onClick={() => handleItemClick("manageusers")}>
+            Profile
           </span>
         </li>
         <li>
