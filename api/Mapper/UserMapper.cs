@@ -17,7 +17,8 @@ namespace api.Mapper
                 FirstName = userModel.FirstName,
                 LastName = userModel.LastName,
                 Email = userModel.Email,
-                Role = userModel.UserRole?.RoleName,  
+                Role = userModel.UserRole?.RoleName, 
+                IsActive=userModel.IsActive, 
                 Wallet = userModel.Wallet?.ToWalletDto(),
                 Carts = userModel.Carts?.Select(cart => cart.ToCartDto()).ToList(),
                 Transactions = userModel.Transactions?.Select(transaction => transaction.ToTransactionDto()).ToList()

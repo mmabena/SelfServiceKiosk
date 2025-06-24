@@ -101,7 +101,8 @@ namespace api.Controllers
                 LastName = registrationDto.LastName,
                 Email = registrationDto.Email,
                 UserRoleId = userRole.UserRoleId,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password)
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(registrationDto.Password),
+                IsActive=true
             };
 
             _context.Users.Add(user);
@@ -257,27 +258,34 @@ public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
             return Ok(new { message = "User successfully updated", user = user.ToUserDto() });
         }
 
-        // DELETE: api/user/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser([FromRoute] int id)
-        {
-            // Find the user by ID
-            var user = await _context.Users.FindAsync(id);
+      
+        
+// PUT: api/user/toggle-active/{id}
+[Authorize(Policy = "RequireSuperUser")]
+[HttpPut("toggle-active/{id}")]
+public async Task<IActionResult> ToggleUserActive([FromRoute] int id)
+{
+    var user = await _context.Users.FindAsync(id);
 
-            // Check if the user exists
-            if (user == null)
-            {
-                return NotFound("User not found.");
-            }
+    if (user == null)
+    {
+        return NotFound("User not found.");
+    }
 
-            // Remove the user from the database
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+    user.IsActive = !user.IsActive;
+    await _context.SaveChangesAsync();
 
-            return Ok("User has been successfully deleted.");
-        }
+    string status = user.IsActive ? "activated" : "deactivated";
+
+    return Ok(new
+    {
+        message = $"User {user.Username} has been {status}.",
+        isActive = user.IsActive
+    });
+}
+
         // POST: api/user/validate
-[HttpPost("validate")]
+        [HttpPost("validate")]
 public IActionResult ValidateToken([FromBody] string token)
 {
     try

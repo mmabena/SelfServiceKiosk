@@ -149,19 +149,33 @@ const ManageProducts = () => {
       imageFile,
     } = productDetails;
   
-    if (
-      !productName ||
-      !productDescription ||
-      isNaN(unitPrice) ||
-      unitPrice <= 0 ||
-      !available ||
-      isNaN(quantity) ||
-      quantity < 0 ||
-      isNaN(categoryId) ||
-      categoryId <= 0 ||
-      !imageFile
-    ) {
-      setErrorMessage("Please fill all fields correctly.");
+    if (!productName || !productDescription) {
+      toast.error("Please enter product name and description.");
+      return;
+    }
+  
+    if (isNaN(unitPrice) || unitPrice <= 0) {
+      toast.error("Price must be a number greater than 0.");
+      return;
+    }
+  
+    if (!available) {
+      toast.error("Please select availability.");
+      return;
+    }
+  
+    if (isNaN(quantity) || quantity < 1) {
+      toast.error("Quantity cannot be less than 1.");
+      return;
+    }
+  
+    if (isNaN(categoryId) || categoryId <= 0) {
+      toast.error("Please select a valid category.");
+      return;
+    }
+  
+    if (!imageFile) {
+      toast.error("Please upload a product image.");
       return;
     }
   
@@ -171,8 +185,7 @@ const ManageProducts = () => {
         p.productName.toLowerCase().trim() === productName.toLowerCase().trim()
     );
     if (duplicate) {
-      setErrorMessage("A product with this name already exists.");
-      toast.error("Duplicate product. Cannot be added.");
+      toast.error("A product with this name already exists.");
       return;
     }
   
@@ -184,23 +197,19 @@ const ManageProducts = () => {
     formData.append("quantity", quantity);
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
-    formData.append("isActive", true); // ✅ Automatically set isActive to true
+    formData.append("isActive", true);
   
     try {
-      await axios.post(
-        "http://localhost:5219/api/product/addProduct",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      await axios.post("http://localhost:5219/api/product/addProduct", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
   
       toast.success("Product added successfully!");
       clearForm();
-      setIsAddingProduct(false); // Close the form
+      setIsAddingProduct(false);
       fetchAllProducts();
     } catch (err) {
       console.error("Add error:", err.response?.data || err.message);
@@ -213,14 +222,14 @@ const ManageProducts = () => {
     }
   };
   
-
+  
   const handleUpdateProduct = async (productId) => {
     const token = localStorage.getItem("token");
     if (!token) {
-      setErrorMessage("Authentication token is missing.");
+      toast.error("Authentication token is missing.");
       return;
     }
-
+  
     const {
       productName,
       productDescription,
@@ -230,23 +239,37 @@ const ManageProducts = () => {
       categoryId,
       imageFile,
     } = productDetails;
-
-    if (
-      !productName ||
-      !productDescription ||
-      isNaN(unitPrice) ||
-      unitPrice <= 0 ||
-      !available ||
-      isNaN(quantity) ||
-      quantity < 0 ||
-      isNaN(categoryId) ||
-      categoryId <= 0 ||
-      !imageFile
-    ) {
-      setErrorMessage("Please fill all fields correctly.");
+  
+    if (!productName || !productDescription) {
+      toast.error("Please enter product name and description.");
       return;
     }
-
+  
+    if (isNaN(unitPrice) || unitPrice <= 0) {
+      toast.error("Price must be a number greater than 0.");
+      return;
+    }
+  
+    if (!available) {
+      toast.error("Please select availability.");
+      return;
+    }
+  
+    if (isNaN(quantity) || quantity < 1) {
+      toast.error("Quantity cannot be less than 1.");
+      return;
+    }
+  
+    if (isNaN(categoryId) || categoryId <= 0) {
+      toast.error("Please select a valid category.");
+      return;
+    }
+  
+    if (!imageFile) {
+      toast.error("Please upload a product image.");
+      return;
+    }
+  
     const formData = new FormData();
     formData.append("productName", productName);
     formData.append("productDescription", productDescription);
@@ -255,24 +278,21 @@ const ManageProducts = () => {
     formData.append("quantity", quantity);
     formData.append("categoryId", categoryId);
     formData.append("productImage", imageFile);
+  
     try {
-      await axios.put(
-        `http://localhost:5219/api/product/${productId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      await axios.put(`http://localhost:5219/api/product/${productId}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
       toast.success("Product updated successfully!");
       clearForm();
       fetchAllProducts();
       setProductDetails((prev) => ({ ...prev, productId: "" }));
     } catch (err) {
       console.error("Update error:", err.response?.data || err.message);
-
+  
       if (err.response?.status === 403) {
         toast.error("You are not authorized to perform this action.");
       } else {
@@ -280,6 +300,7 @@ const ManageProducts = () => {
       }
     }
   };
+  
 
   return (
     <div className="product-table-container">
@@ -504,11 +525,9 @@ const ManageProducts = () => {
                 ))}
               </select>
             </div>
-
             <div className="form-group">
-              <label>Availability</label>
-              <input
-                type="text"
+              <label>Available</label>
+              <select
                 value={productDetails.available}
                 onChange={(e) =>
                   setProductDetails({
@@ -516,9 +535,12 @@ const ManageProducts = () => {
                     available: e.target.value,
                   })
                 }
-                placeholder="Available/Not Available"
                 required
-              />
+              >
+                <option value="">Select availability</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
             </div>
 
             <button type="submit"  className="btn-blue">
@@ -601,7 +623,6 @@ const ManageProducts = () => {
               >
                 <option value="">Select availability</option>
                 <option value="Yes">Yes</option>
-                <option value="No">No</option>
               </select>
             </div>
             <div className="form-group">

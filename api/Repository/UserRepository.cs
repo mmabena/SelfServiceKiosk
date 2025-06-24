@@ -54,7 +54,8 @@ namespace api.Repositories
                 FirstName = dto.FirstName,
                 LastName = dto.LastName,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                UserRoleId = role.UserRoleId
+                UserRoleId = role.UserRoleId,
+                IsActive=true
             };
 
             _context.Users.Add(newUser);

@@ -1,17 +1,15 @@
-import React, {useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 import "./LoginSignup.css";
 import Sidebar from "./components/SideBar";
 import LogoutButton from "./components/LogoutButton";
 import Wallet from "./components/Wallet";
 import ManageProducts from "./components/ManageProducts";
 import Transactions from "./components/Transactions";
-import { ToastContainer } from "react-toastify";
-import { toast } from 'react-toastify';
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ManageUsers from "./components/ManageUsers";
-
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -24,7 +22,13 @@ const App = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [cartItems] = useState({});
   const lastSelectedCategoryRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  //eslint-disable-next-line
+  const [showLoginForm, setShowLoginForm] = useState(true);
 
+
+  const [alertType, setAlertType] = useState(""); // 'success' or 'error'
 
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -59,7 +63,6 @@ const App = () => {
     }
   };
 
-  
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 8;
 
@@ -100,30 +103,30 @@ const App = () => {
 
   let deliveryOption = "pickup"; // default pickup
   const DELIVERY_FEE = 15.0;
-  
+
   async function handleAddToCart(product) {
     const id = product.productId;
-  
+
     try {
       const response = await fetch(`http://localhost:5219/api/product/${id}`);
       if (!response.ok) throw new Error("Failed to fetch product data.");
       const latestProduct = await response.json();
-  
+
       if (latestProduct.available === "no" || latestProduct.quantity <= 0) {
-        alert(`${latestProduct.productName} is out of stock.`);
+        toast.error(`${latestProduct.productName} is out of stock.`);
         return;
       }
-  
+
       // Reserve one unit
       await fetch(`http://localhost:5219/api/product/reserve/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: 1 }),
       });
-  
+
       const user = JSON.parse(localStorage.getItem("user"));
       if (!user?.userId) throw new Error("User not logged in.");
-  
+
       let cartId;
       const cartRes = await fetch(
         `http://localhost:5219/api/cart/active/${user.userId}`
@@ -140,7 +143,7 @@ const App = () => {
         const newCart = await createRes.json();
         cartId = newCart.cartId;
       }
-  
+
       const addRes = await fetch(`http://localhost:5219/api/cart/addProduct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,9 +154,9 @@ const App = () => {
           product: latestProduct,
         }),
       });
-  
+
       const added = await addRes.json();
-  
+
       if (!cartItems[id]) {
         cartItems[id] = {
           product: latestProduct,
@@ -165,46 +168,47 @@ const App = () => {
       } else {
         cartItems[id].quantity += 1;
       }
-  
+
       setProducts((prev) =>
         prev.map((p) =>
           p.productId === id ? { ...p, quantity: p.quantity - 1 } : p
         )
       );
-  
+
       updateCartUI();
-      alert(`Added "${latestProduct.productName}" to cart.`);
+      toast.success(`Added "${latestProduct.productName}" to cart.`);
     } catch (err) {
       console.error("Add to cart error:", err);
-      alert(err.message || "Error adding to cart.");
+      toast.error(err.message || "Error adding to cart.");
     }
   }
-
 
   function updateCartUI() {
     const cartList = document.querySelector(".cart-list");
     const totalPriceElement = document.getElementById("total-price");
     let cartFooter = document.querySelector(".cart-footer");
-  
+
     if (!cartList || !totalPriceElement) return;
-  
+
     cartList.innerHTML = "";
     let totalPrice = 0;
     let totalItemCount = 0;
-  
+
     Object.entries(cartItems).forEach(([productId, { product, quantity }]) => {
       const unitPrice = product.unitPrice || 0;
       const subtotal = unitPrice * quantity;
       totalPrice += subtotal;
       totalItemCount += quantity;
-  
+
       const li = document.createElement("li");
       li.className = "cart-item";
-  
+
       li.innerHTML = `
         <div class="cart-item-layout" style="display: flex; align-items: flex-start; gap: 12px;">
           <div class="cart-image-wrapper">
-            <img src="${product.productImage || ""}" alt="${product.productName}" class="cart-product-image" />
+            <img src="${product.productImage || ""}" alt="${
+        product.productName
+      }" class="cart-product-image" />
             <span class="quantity-badge">${quantity}</span>
           </div>
           <div class="cart-product-details">
@@ -213,27 +217,33 @@ const App = () => {
             <div class="cart-quantity-controls">
               <button class="decrease-btn" data-id="${productId}">−</button>
               <span class="quantity">${quantity}</span>
-              <button class="increase-btn" data-id="${productId}" ${quantity >= product.quantity ? "disabled" : ""}>+</button>
+              <button class="increase-btn" data-id="${productId}" ${
+        quantity >= product.quantity ? "disabled" : ""
+      }>+</button>
             </div>
             <button class="remove-item-btn" data-id="${productId}">Remove</button>
           </div>
         </div>
       `;
-  
+
       cartList.appendChild(li);
     });
-  
+
     // Update footer content directly
     if (cartFooter) {
       cartFooter.innerHTML = `
         <div class="footer-left" style="display: flex; flex-direction: column; gap: 10px;">
           <div class="delivery-options" style="display: flex; flex-direction: column; gap: 5px;">
             <label style="font-size: 0.85rem;">
-              <input type="radio" name="deliveryOption" value="pickup" ${deliveryOption === "pickup" ? "checked" : ""} />
+              <input type="radio" name="deliveryOption" value="pickup" ${
+                deliveryOption === "pickup" ? "checked" : ""
+              } />
               Pickup (R0.00)
             </label>
             <label style="font-size: 0.85rem;">
-              <input type="radio" name="deliveryOption" value="delivery" ${deliveryOption === "delivery" ? "checked" : ""} />
+              <input type="radio" name="deliveryOption" value="delivery" ${
+                deliveryOption === "delivery" ? "checked" : ""
+              } />
               Delivery (R15.00)
             </label>
           </div>
@@ -245,41 +255,40 @@ const App = () => {
           </div>
         </div>
       `;
-    
-      const checkoutBtn = cartFooter.querySelector(".checkout-btn");
-if (checkoutBtn) {
-  checkoutBtn.addEventListener("click", handleCheckout);
-}
 
-    
-      cartFooter.querySelectorAll('input[name="deliveryOption"]').forEach(radio => {
-        radio.addEventListener("change", (e) => {
-          deliveryOption = e.target.value;
-          updateCartUI(); // Refresh total
+      const checkoutBtn = cartFooter.querySelector(".checkout-btn");
+      if (checkoutBtn) {
+        checkoutBtn.addEventListener("click", handleCheckout);
+      }
+
+      cartFooter
+        .querySelectorAll('input[name="deliveryOption"]')
+        .forEach((radio) => {
+          radio.addEventListener("change", (e) => {
+            deliveryOption = e.target.value;
+            updateCartUI(); // Refresh total
+          });
         });
-      });
     }
-    
-    
-  
+
     if (deliveryOption === "delivery") {
       totalPrice += DELIVERY_FEE;
     }
-  
+
     const newTotalEl = cartFooter.querySelector("#total-price");
     if (newTotalEl) {
       newTotalEl.textContent = `R${totalPrice.toFixed(2)}`;
     }
-  
+
     const cartCountElement = document.querySelector(".cart-count");
     if (cartCountElement) cartCountElement.textContent = totalItemCount;
-  
+
     if (!cartList.hasEventListener) {
       cartList.addEventListener("click", (event) => {
         const btn = event.target;
         const id = btn.dataset.id;
         if (!id) return;
-  
+
         if (btn.classList.contains("increase-btn")) {
           changeItemQuantity(id, "increase");
         }
@@ -290,54 +299,56 @@ if (checkoutBtn) {
           removeItemFromCart(id);
         }
       });
-  
+
       cartList.hasEventListener = true;
     }
   }
-  
+
   const quantityProcessing = {};
 
   async function changeItemQuantity(productId, action) {
     if (quantityProcessing[productId]) return;
     quantityProcessing[productId] = true;
-  
+
     const item = cartItems[productId];
     if (!item) {
       quantityProcessing[productId] = false;
       return;
     }
-  
+
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user?.userId) {
       quantityProcessing[productId] = false;
       throw new Error("User not logged in.");
     }
-  
+
     try {
       // Fetch latest product data
-      const productRes = await fetch(`http://localhost:5219/api/product/${productId}`);
+      const productRes = await fetch(
+        `http://localhost:5219/api/product/${productId}`
+      );
       if (!productRes.ok) throw new Error("Failed to fetch product.");
       const productData = await productRes.json();
-  
+
       let newQuantity = item.quantity;
-  
+
       if (action === "increase") {
         if (productData.quantity <= 0) {
-          alert(`"${productData.productName}" is out of stock.`);
+          toast.error(`"${productData.productName}" is out of stock.`);
+
           return;
         }
-  
+
         newQuantity = item.quantity + 1;
-  
       } else if (action === "decrease") {
         newQuantity = item.quantity - 1;
-  
+
         if (newQuantity <= 0) {
           await removeItemFromCart(productId);
           return;
         }
       }
-  
+
       // Update cart using PUT with the final new quantity
       await fetch(`http://localhost:5219/api/cart/update-product-quantity`, {
         method: "PUT",
@@ -348,21 +359,25 @@ if (checkoutBtn) {
           quantity: newQuantity,
         }),
       });
-  
+
       // Update local cart
       item.quantity = newQuantity;
       updateCartUI();
-  
+
       // Refresh stock
-      const updatedProductRes = await fetch(`http://localhost:5219/api/product/${productId}`);
+      const updatedProductRes = await fetch(
+        `http://localhost:5219/api/product/${productId}`
+      );
       const updatedProduct = await updatedProductRes.json();
-  
+
       setProducts((prev) =>
         prev.map((p) =>
-          p.productId === productId ? { ...p, quantity: updatedProduct.quantity } : p
+          p.productId === productId
+            ? { ...p, quantity: updatedProduct.quantity }
+            : p
         )
       );
-  
+
       updateCartUI();
     } catch (err) {
       console.error("Quantity change error:", err);
@@ -371,20 +386,20 @@ if (checkoutBtn) {
       quantityProcessing[productId] = false;
     }
   }
-  
-  
-  
+
   async function removeItemFromCart(productId) {
     const item = cartItems[productId];
     if (!item) return;
 
-    const confirmRemove = window.confirm(`Remove "${item.product.productName}" from cart?`);
+    const confirmRemove = window.confirm(
+      `Remove "${item.product.productName}" from cart?`
+    );
     if (!confirmRemove) return;
-    
+
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       if (!user?.userId) throw new Error("No user found");
-  
+
       await fetch(`http://localhost:5219/api/cart/remove-product`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -393,7 +408,7 @@ if (checkoutBtn) {
           productId: item.productId,
         }),
       });
-  
+
       await fetch(
         `http://localhost:5219/api/product/release/${item.productId}`,
         {
@@ -402,9 +417,9 @@ if (checkoutBtn) {
           body: JSON.stringify({ quantity: item.quantity }),
         }
       );
-  
+
       delete cartItems[productId];
-  
+
       setProducts((prev) =>
         prev.map((p) =>
           p.productId === item.productId
@@ -412,14 +427,13 @@ if (checkoutBtn) {
             : p
         )
       );
-  
+
       updateCartUI();
     } catch (err) {
       console.error("Remove error:", err);
       alert("Failed to remove item.");
     }
   }
-  
 
   // Toggle cart display
   function toggleCart() {
@@ -427,75 +441,74 @@ if (checkoutBtn) {
     cartBox?.classList.toggle("hidden");
   }
 
-// Updated handleCheckout to receive delivery option from global state
-async function handleCheckout() {
-  
-  // Use global deliveryOption variable instead of prompt
-  const deliveryMethod = deliveryOption === "pickup" ? "Pickup" : "Delivery";
+  // Updated handleCheckout to receive delivery option from global state
+  async function handleCheckout() {
+    // Use global deliveryOption variable instead of prompt
+    const deliveryMethod = deliveryOption === "pickup" ? "Pickup" : "Delivery";
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  if (!user || !user.userId) return alert("User not logged in.");
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user || !user.userId) return alert("User not logged in.");
 
-  let wallet;
-  try {
-    const res = await fetch(
-      `http://localhost:5219/api/wallet/${user.userId}`
-    );
-    if (!res.ok) throw new Error("Failed to fetch wallet.");
-    wallet = await res.json();
-  } catch (err) {
-    console.error("Wallet error:", err);
-    return alert("Failed to fetch wallet.");
-  }
+    let wallet;
+    try {
+      const res = await fetch(
+        `http://localhost:5219/api/wallet/${user.userId}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch wallet.");
+      wallet = await res.json();
+    } catch (err) {
+      console.error("Wallet error:", err);
+      return alert("Failed to fetch wallet.");
+    }
 
-  if (!wallet || wallet.balance == null) return alert("Wallet not found.");
+    if (!wallet || wallet.balance == null) return alert("Wallet not found.");
 
-  let total = 0;
-  for (const item of Object.values(cartItems)) {
-    total += item.product.unitPrice * item.quantity;
-  }
+    let total = 0;
+    for (const item of Object.values(cartItems)) {
+      total += item.product.unitPrice * item.quantity;
+    }
 
-  if (deliveryMethod === "Delivery") {
-    total += DELIVERY_FEE;
-  }
+    if (deliveryMethod === "Delivery") {
+      total += DELIVERY_FEE;
+    }
 
-  if (wallet.balance < total) {
-    return alert("Insufficient funds in your wallet.");
-  }
+    if (wallet.balance < total) {
+      return alert("Insufficient funds in your wallet.");
+    }
 
-  try {
-    const checkoutPayload = {
-      userId: user.userId,
-      deliveryMethod,
-    };
+    try {
+      const checkoutPayload = {
+        userId: user.userId,
+        deliveryMethod,
+      };
 
-    const res = await fetch(
-      "http://localhost:5219/api/transaction/checkout",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(checkoutPayload),
+      const res = await fetch(
+        "http://localhost:5219/api/transaction/checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(checkoutPayload),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Checkout failed.");
       }
-    );
 
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.message || "Checkout failed.");
+      const result = await res.json();
+      alert(result.message || "Checkout successful!");
+      for (const key in cartItems) {
+        delete cartItems[key];
+      }
+      localStorage.removeItem("cartItems");
+      updateCartUI();
+    } catch (err) {
+      console.error("Checkout failed:", err);
+      alert(err.message || "Failed to complete checkout.");
     }
-
-    const result = await res.json();
-    alert(result.message || "Checkout successful!");
-    for (const key in cartItems) {
-      delete cartItems[key];
-    }
-    localStorage.removeItem("cartItems");
-    updateCartUI();
-  } catch (err) {
-    console.error("Checkout failed:", err);
-    alert(err.message || "Failed to complete checkout.");
   }
-}
-// eslint-disable-next-line
+  // eslint-disable-next-line
   const [productDetails, setProductDetails] = useState({
     productName: "",
     productDescription: "",
@@ -628,56 +641,95 @@ async function handleCheckout() {
     }
   };
 
- 
-const fetchActiveProductsByCategory = async (categoryName) => {
-  const category = categoryName || searchCategory;
+  const fetchActiveProductsByCategory = async (categoryName) => {
+    const category = categoryName || searchCategory;
 
-  if (!category.trim()) {
-    toast.error("Category name is required.");
-    setProducts([]);
-    return;
-  }
-
-  try {
-    const response = await axios.get(
-      "http://localhost:5219/api/product/activeProducts"
-    );
-
-    if (!categories || categories.length === 0) {
-      toast.error("Category data is missing.");
-      return;
-    }
-
-    const matchedCategory = categories.find(
-      (c) => c.categoryName.toLowerCase() === category.toLowerCase()
-    );
-
-    if (!matchedCategory) {
-      toast.error("Category not found.");
+    if (!category.trim()) {
+      toast.error("Category name is required.");
       setProducts([]);
       return;
     }
 
-    const filtered = response.data.filter(
-      (product) => product.categoryId === matchedCategory.categoryId
-    );
+    try {
+      const response = await axios.get(
+        "http://localhost:5219/api/product/activeProducts"
+      );
 
-    setProducts(filtered); // Always update state, even if empty
+      if (!categories || categories.length === 0) {
+        toast.error("Category data is missing.");
+        return;
+      }
 
-    if (filtered.length === 0) {
-      // Force the toast to show by dismissing previous and showing a new one
-      toast.dismiss("no-products");
-      toast.info(`No active products found in '${matchedCategory.categoryName}'.`, {
-        toastId: `no-products-${Date.now()}` // make toastId unique
-      });
+      const matchedCategory = categories.find(
+        (c) => c.categoryName.toLowerCase() === category.toLowerCase()
+      );
+
+      if (!matchedCategory) {
+        toast.error("Category not found.");
+        setProducts([]);
+        return;
+      }
+
+      const filtered = response.data.filter(
+        (product) => product.categoryId === matchedCategory.categoryId
+      );
+
+      setProducts(filtered); // Always update state, even if empty
+
+      if (filtered.length === 0) {
+        // Force the toast to show by dismissing previous and showing a new one
+        toast.dismiss("no-products");
+        toast.info(
+          `No active products found in '${matchedCategory.categoryName}'.`,
+          {
+            toastId: `no-products-${Date.now()}`, // make toastId unique
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching active products by category:", error);
+      toast.error("Error fetching products.");
+      setProducts([]);
+    }
+  };
+  const fetchActiveProductsByName = async (productName) => {
+    const name = productName || searchTerm;
+
+    if (!name.trim()) {
+      toast.error("Product name is required.");
+      setProducts([]);
+      return;
     }
 
-  } catch (error) {
-    console.error("Error fetching active products by category:", error);
-    toast.error("Error fetching products.");
-    setProducts([]);
-  }
-};
+    try {
+      const response = await axios.get(
+        "http://localhost:5219/api/product/activeProducts"
+      );
+
+      if (!response.data || response.data.length === 0) {
+        toast.error("No product data found.");
+        setProducts([]);
+        return;
+      }
+
+      const filtered = response.data.filter((product) =>
+        product.productName?.toLowerCase().includes(name.toLowerCase())
+      );
+
+      setProducts(filtered); // Always update state, even if empty
+
+      if (filtered.length === 0) {
+        toast.dismiss("no-products");
+        toast.info(`No active products found matching '${name}'.`, {
+          toastId: `no-products-${Date.now()}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching active products by name:", error);
+      toast.error("Error fetching products.");
+      setProducts([]);
+    }
+  };
 
   const fetchProductById = async () => {
     if (!searchId.trim()) return setErrorMessage("Product ID is required.");
@@ -703,19 +755,19 @@ const fetchActiveProductsByCategory = async (categoryName) => {
     }
   };
 
- 
-  
-    /* logic for handling server errors so user knows what the problem is*/
-  
+  /* logic for handling server errors so user knows what the problem is*/
+
   const handleError = (error) => {
     toast.dismiss("main-error");
-  
+
     if (error.response?.status === 401) {
       toast.error("Unauthorized. Please log in.", { toastId: "main-error" });
     } else if (error.response?.status === 404) {
       toast.error("Not found.", { toastId: "main-error" });
     } else if (error.response?.status === 403) {
-      toast.error("You are not authorized to perform this action.", { toastId: "main-error" });
+      toast.error("You are not authorized to perform this action.", {
+        toastId: "main-error",
+      });
     } else {
       toast.error("An unexpected error occurred.", { toastId: "main-error" });
     }
@@ -744,9 +796,9 @@ const fetchActiveProductsByCategory = async (categoryName) => {
   const handleRegisterChange = (e) => {
     setRegisterDetails({ ...registerDetails, [e.target.name]: e.target.value });
   };
-  
-    /* logic for handling the login and receiving & saving the user token for authorization*/
-  
+
+  /* logic for handling the login and receiving & saving the user token for authorization*/
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -755,80 +807,130 @@ const fetchActiveProductsByCategory = async (categoryName) => {
         loginDetails
       );
 
-      console.log(response.data); // Debug: confirm full data is received
+      console.log(response.data);
 
       if (response.data && response.data.token && response.data.user) {
         setToken(response.data.token);
-        setIsLoggedIn(true);
-
-        // ✅ Store both token and user object
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user", JSON.stringify(response.data.user));
-
-        alert("Login successful");
-        setDashboardTab("all"); // Navigate to the landing/dashboard page
-      } else {
-        setErrorMessage("Login failed: Incomplete response.");
+      
+        setAlertMessage("Login successful!");
+        setAlertType("success");
+      
+        // Show alert but keep login form visible
+        setShowLoginForm(true);
+      
+        setTimeout(() => {
+          setAlertMessage("");
+          setShowLoginForm(false);   // Hide login form after alert
+          setIsLoggedIn(true);       // User is now logged in
+          setDashboardTab("all");    // Show dashboard tab
+        }, 500);
+      }
+       else {
+        setAlertMessage("Login failed: Incomplete response.");
+        setAlertType("error");
       }
     } catch (error) {
-      console.error("Login error: ", error);
-      const errorMessage =
-        error.response?.data?.message || "An error occurred during login.";
-      setErrorMessage(errorMessage);
+      console.error("Login error:", error);
+      let errorMessage = "An error occurred during login.";
+
+      if (error.response) {
+        const status = error.response.status;
+        const serverMessage = error.response.data?.message;
+
+        if (status === 400) {
+          errorMessage = "Fields missing. Please try again.";
+        } else if (status === 401) {
+          errorMessage = "Incorrect username or password.";
+        } else if (status === 500) {
+          errorMessage = "Server error. Please try again later.";
+        } else {
+          errorMessage = serverMessage || errorMessage;
+        }
+      }
+
+      setAlertMessage(errorMessage);
+      setAlertType("error");
       setLoginDetails({ username: "", password: "" });
+
+      setTimeout(() => {
+        setAlertMessage(""); // Auto-dismiss
+      }, 3000);
     }
   };
 
-  
-    /* logic for handling registration and redirecting to the login page when registration is successful*/
-  
+  /* logic for handling registration and redirecting to the login page when registration is successful*/
+
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
       console.log("Submitting registration details:", registerDetails);
-
+  
+      // Force role to 'User' for default role on registration
+      const dataToSend = { ...registerDetails, role: "User" };
+  
       await axios.post(
         "http://localhost:5219/api/user/register",
-        registerDetails
+        dataToSend
       );
-
-      alert("Registration successful!");
-      setActiveTab("login"); // Switch to login tab on successful registration
+  
+      setAlertMessage("Registration successful!");
+      setAlertType("success");
+  
+      setTimeout(() => {
+        setAlertMessage("");
+        setActiveTab("login");
+      }, 2500);
     } catch (error) {
       console.error(
         "Registration error:",
         error.response?.data || error.message
       );
-
-      setErrorMessage("Error registering.");
+  
+      // Extract specific error message if available
+      const errorMsg =
+        error.response?.data?.message || // If your API sends a message field
+        error.response?.data || // or the whole data string/object
+        error.message || // fallback to general JS error message
+        "Error registering. Please check your input.";
+  
+      setAlertMessage(errorMsg);
+      setAlertType("error");
+  
       setRegisterDetails({
         username: "",
         firstName: "",
         lastName: "",
         password: "",
         email: "",
-        role: "",
+        role: "User", // keep default role on reset
       });
+  
+      setTimeout(() => {
+        setAlertMessage("");
+      }, 4000);
     }
   };
+  
+
   useEffect(() => {
     if (activeTab === "manageproducts") {
       fetchCategories(); // <-- Fetch only when needed
       fetchProducts(); // <-- Optional: also re-fetch products if needed
     }
   }, [activeTab]);
-  
-    /* logic to clear any output when the user chooses a different page/tab as well as ensuring for search that no products show until the search input has been returned*/
-  
+
+  /* logic to clear any output when the user chooses a different page/tab as well as ensuring for search that no products show until the search input has been returned*/
+
   useEffect(() => {
     clearForm();
 
     if (["all", "delete"].includes(activeTab)) {
       fetchActiveProducts();
-      fetchCategories();  // ✅ Add this
+      fetchCategories(); // ✅ Add this
       setSearchPerformed(true);
-    }
-     else {
+    } else {
       setProducts([]); // Clear previous results
       setSearchPerformed(false); // Prevent showing products until search is done
     }
@@ -890,10 +992,8 @@ const fetchActiveProductsByCategory = async (categoryName) => {
             {dashboardTab === "wallet" && <Wallet />}
             {dashboardTab === "manageproducts" && <ManageProducts />}
             {dashboardTab === "transactions" && <Transactions />}
-            {dashboardTab=== "manageusers" && <ManageUsers/>}
+            {dashboardTab === "manageusers" && <ManageUsers />}
             <ToastContainer position="top-right" autoClose={3000} />
-
-            
           </>
         )}
         {!isLoggedIn ? (
@@ -978,6 +1078,12 @@ const fetchActiveProductsByCategory = async (categoryName) => {
                       <div className="btn-layer"></div>
                       <input type="submit" value="Login" />
                     </div>
+                    {alertMessage && alertType === "success" && (
+                      <div className="custom-alert success">{alertMessage}</div>
+                    )}
+                    {alertMessage && alertType === "error" && (
+                      <div className="custom-alert error">{alertMessage}</div>
+                    )}
                   </form>
                 ) : (
                   <form onSubmit={handleRegister} className="signup">
@@ -1031,7 +1137,7 @@ const fetchActiveProductsByCategory = async (categoryName) => {
                         required
                       />
                     </div>
-                    <div className="field">
+                    {/* <div className="field">
                       <select
                         name="role"
                         value={registerDetails.role}
@@ -1042,11 +1148,17 @@ const fetchActiveProductsByCategory = async (categoryName) => {
                         <option value="User">User</option>
                         <option value="Superuser">Superuser</option>
                       </select>
-                    </div>
+                    </div> */}
                     <div className="field btn">
                       <div className="btn-layer"></div>
                       <input type="submit" value="Signup" />
                     </div>
+                    {alertMessage && alertType === "success" && (
+                      <div className="custom-alert success">{alertMessage}</div>
+                    )}
+                    {alertMessage && alertType === "error" && (
+                      <div className="custom-alert error">{alertMessage}</div>
+                    )}
                   </form>
                 )}
               </div>
@@ -1093,42 +1205,62 @@ const fetchActiveProductsByCategory = async (categoryName) => {
               {/* Display product table if a relevant tab is active */}
               {["all", "byId", "byCategory"].includes(activeTab) && (
                 <>
-                
                   {/* Category Buttons visible in "all" tab */}
-      {activeTab === "all" && (
-  <div className="category-toolbar">
-    <div className="category-buttons">
-      <button
-        className={`category-btn ${
-          lastSelectedCategoryRef.current === "All" ? "selected" : ""
-        }`}
-        onClick={() => {
-          lastSelectedCategoryRef.current = "All";
-          fetchActiveProducts();
-          setCurrentPage(1);
-        }}
-      >
-        All
-      </button>
+                  {activeTab === "all" && (
+                    <div className="category-toolbar">
+                      <div className="category-buttons">
+                        {/* Search Input Styled as Button */}
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={searchTerm}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            setSearchTerm(newValue);
+                            if (newValue.trim() === "") {
+                              fetchActiveProducts(); // Reset to all products if search is cleared
+                            } else {
+                              fetchActiveProductsByName(newValue);
+                            }
+                          }}
+                          className="category-btn search-input" // apply button styling + optional input-specific tweaks
+                        />
 
-      {categories.map((cat) => (
-        <button
-          key={cat.categoryId}
-          className={`category-btn ${
-            lastSelectedCategoryRef.current === cat.categoryName
-              ? "selected"
-              : ""
-          }`}
-          onClick={() => {
-            lastSelectedCategoryRef.current = cat.categoryName;
-            fetchActiveProductsByCategory(cat.categoryName);
-            setCurrentPage(1);
-          }}
-        >
-          {cat.categoryName}
-        </button>
-                  
-                    
+                        {/* "All" Button */}
+                        <button
+                          className={`category-btn ${
+                            lastSelectedCategoryRef.current === "All"
+                              ? "selected"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            lastSelectedCategoryRef.current = "All";
+                            fetchActiveProducts();
+                            setCurrentPage(1);
+                          }}
+                        >
+                          All
+                        </button>
+
+                        {/* Category Buttons */}
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.categoryId}
+                            className={`category-btn ${
+                              lastSelectedCategoryRef.current ===
+                              cat.categoryName
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              lastSelectedCategoryRef.current =
+                                cat.categoryName;
+                              fetchActiveProductsByCategory(cat.categoryName);
+                              setCurrentPage(1);
+                            }}
+                          >
+                            {cat.categoryName}
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -1151,12 +1283,11 @@ const fetchActiveProductsByCategory = async (categoryName) => {
                             <h3>{p.productName}</h3>
                             <p>{p.productDescription}</p>
                             <p>
-                              |Qty:{p.quantity}|  |
+                              |Qty:{p.quantity}| |
                               <strong>
-
-                              R{parseFloat(p.unitPrice).toFixed(2)}
-                              </strong>{" "}|
-                              
+                                R{parseFloat(p.unitPrice).toFixed(2)}
+                              </strong>{" "}
+                              |
                             </p>
                             <button
                               className="add-to-cart-btn"
@@ -1200,7 +1331,6 @@ const fetchActiveProductsByCategory = async (categoryName) => {
                   )}
                 </>
               )}
-            
             </div>
           </>
         )}

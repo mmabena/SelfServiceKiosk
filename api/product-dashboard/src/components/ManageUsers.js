@@ -95,7 +95,10 @@ const ManageUsers = () => {
   const handleEditClick = (user) => {
     setUserForm({ ...user, password: "" }); // password empty on edit (optional)
     setEditUser(user);
-    setTimeout(() => updateFormRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(
+      () => updateFormRef.current?.scrollIntoView({ behavior: "smooth" }),
+      100
+    );
   };
 
   const handleAddClick = () => {
@@ -109,45 +112,53 @@ const ManageUsers = () => {
       role: "",
     });
     setIsAddingUser(true);
-    setTimeout(() => addFormRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(
+      () => addFormRef.current?.scrollIntoView({ behavior: "smooth" }),
+      100
+    );
   };
 
   const handleUpdateUser = async (e) => {
     e.preventDefault();
-  
+
     // Validate email
     if (!validateEmail(userForm.email)) {
       toast.error("Email must be a valid @singular.co.za address.");
       return;
     }
-  
+
     // Prepare the data to be sent
     const updatedData = { ...userForm };
-  
+
     // Include password only if it's provided
     if (userForm.password) {
       if (!validatePassword(userForm.password)) {
-        toast.error("Password must be 8+ chars with uppercase, lowercase, number, and special character.");
+        toast.error(
+          "Password must be 8+ chars with uppercase, lowercase, number, and special character."
+        );
         return;
       }
     } else {
       // Remove the password key entirely if user hasn't entered a new one
       delete updatedData.password;
     }
-    
-  
+
     // Authentication token
     const token = getToken();
     if (!token) {
       toast.error("Authentication token missing. Please log in again.");
       return;
     }
-  
+
     try {
       // Send the update request
-      await axios.put(`http://localhost:5219/api/user/${userForm.userId}`, updatedData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.put(
+        `http://localhost:5219/api/user/${userForm.userId}`,
+        updatedData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       toast.success("User updated successfully.");
       setEditUser(null);
       fetchCurrentUser();
@@ -156,9 +167,6 @@ const ManageUsers = () => {
       toast.error(err.response?.data?.message || "Failed to update user.");
     }
   };
-  
-  
-  
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -194,7 +202,7 @@ const ManageUsers = () => {
     }
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleToggleUserActive = async (userId) => {
     const token = getToken();
     if (!token) {
       toast.error("Authentication token missing. Please log in again.");
@@ -202,15 +210,22 @@ const ManageUsers = () => {
     }
 
     try {
-      console.log("Deleting user with ID:", userId);
-      await axios.delete(`http://localhost:5219/api/user/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("User deleted successfully.");
-      fetchCurrentUser();
+      const res = await axios.put(
+        `http://localhost:5219/api/user/toggle-active/${userId}`,
+        null,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const { isActive, message } = res.data;
+      toast.success(message);
+
+      // Update the user in state directly
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => (u.userId === userId ? { ...u, isActive } : u))
+      );
     } catch (err) {
-      console.error("Delete user error:", err.response || err);
-      toast.error(err.response?.data || "Failed to delete user.");
+      console.error("Toggle user status error:", err);
+      toast.error(err.response?.data || "Failed to toggle user status.");
     }
   };
 
@@ -223,7 +238,7 @@ const ManageUsers = () => {
 
       {isSuperUser && (
         <div className="product-actions">
-          <button className="cancel-btn" onClick={handleAddClick}>
+          <button className="cancel-btn action-button" onClick={handleAddClick}>
             Add User
           </button>
         </div>
@@ -236,52 +251,70 @@ const ManageUsers = () => {
               <th>Username</th>
               <th>Name</th>
               <th>Email</th>
-              <th>Role</th>
+              {isSuperUser && <th>Role</th>}
+              {isSuperUser && <th>Status</th>}
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users
-              .filter(Boolean)
-              .map((user) => (
-                <tr key={user.userId}>
-                  <td>{user.username}</td>
-                  <td>
-                    {user.firstName} {user.lastName}
-                  </td>
-                  <td>{user.email}</td>
-                  <td>{user.role}</td>
-                  <td>
-                    {canEdit(user.userId) && (
-                      <div style={{ display: "flex", gap: "10px" }}>
+            {users.filter(Boolean).map((user) => (
+              <tr key={user.userId}>
+                <td>{user.username}</td>
+                <td>
+                  {user.firstName} {user.lastName}
+                </td>
+                <td>{user.email}</td>
+                {isSuperUser && <td>{user.role}</td>}
+                {isSuperUser && (
+        <td>
+          <span
+            style={{
+              color: user.isActive ? "green" : "red",
+              fontWeight: "bold",
+            }}
+          >
+            {user.isActive ? "Active" : "Inactive"}
+          </span>
+        </td>
+      )}
+                <td>
+                  {canEdit(user.userId) && (
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <button
+                        className="btn-blue action-button-1"
+                        onClick={() => handleEditClick(user)}
+                      >
+                        Edit
+                      </button>
+                      {isSuperUser && (
                         <button
-                          className="btn-blue"
-                          onClick={() => handleEditClick(user)}
+                          className="btn-blue action-button"
+                          onClick={() => {
+                            const action = user.isActive
+                              ? "deactivate"
+                              : "activate";
+                            if (
+                              window.confirm(
+                                `Are you sure you want to ${action} user "${user.firstName}"?`
+                              )
+                            ) {
+                              handleToggleUserActive(user.userId);
+                            }
+                          }}
+                          style={{
+                            backgroundColor: user.isActive
+                              ? "#d42f2f"
+                              : "#2ecc71",
+                          }}
                         >
-                          Edit
+                          {user.isActive ? "Deactivate" : "Activate"}
                         </button>
-                        {isSuperUser && (
-                          <button
-                            className="btn-blue"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Are you sure you want to delete user "${user.firstName}"?`
-                                )
-                              ) {
-                                handleDeleteUser(user.userId);
-                              }
-                            }}
-                            style={{ backgroundColor: "#d42f2f" }}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -324,7 +357,7 @@ const ManageUsers = () => {
               />
             </div>
             <div className="form-group">
-              <label>Password (leave blank to keep current password)</label>
+              <label>Password </label>
               <input
                 type="password"
                 value={userForm.password}
@@ -451,7 +484,11 @@ const ManageUsers = () => {
               type="button"
               className="cancel-btn"
               onClick={() => setIsAddingUser(false)}
-              style={{ marginTop: "10px", marginLeft: "10px", backgroundColor: "#ccc" }}
+              style={{
+                marginTop: "10px",
+                marginLeft: "10px",
+                backgroundColor: "#ccc",
+              }}
             >
               Cancel
             </button>

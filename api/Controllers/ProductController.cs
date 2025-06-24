@@ -28,7 +28,10 @@ namespace api.Controllers
         [HttpGet("activeProducts")]
         public IActionResult GetActiveProducts()
         {
-            var products = _context.Products.Where(p => p.IsActive).ToList();
+            var products = _context.Products
+                .Where(p => p.IsActive && p.Available.ToLower() != "no")
+                .ToList();
+
             return Ok(products);
         }
         // PUT: api/product/{id}/toggle-active
