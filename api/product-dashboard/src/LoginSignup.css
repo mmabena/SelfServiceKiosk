@@ -1431,7 +1431,7 @@ button:hover {
 }
 .action-button {
   width: 120px;
-  height: 50px;
+  height: 35px;
   text-align: center;
   line-height: 10px;
   white-space: nowrap;
@@ -1441,8 +1441,8 @@ button:hover {
   font-size: 14px; /* Optional: set a fixed font size */
 }
 .action-button-1 {
-  width: 80px;
-  height: 50px;
+  width: 70px;
+  height:  35px;
   text-align: center;
   line-height: 10px;
   white-space: nowrap;
