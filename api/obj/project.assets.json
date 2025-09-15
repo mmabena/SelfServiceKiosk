@@ -8810,23 +8810,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\MMkhatshane\\.nuget\\packages\\": {},
+    "C:\\Users\\MMabena.SINGULAR\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\MMkhatshane\\Documents\\SelfServiceKioskAPI\\api\\api.csproj",
+      "projectUniqueName": "C:\\Users\\MMabena.SINGULAR\\Desktop\\SelfServiceKiosk\\api\\api.csproj",
       "projectName": "api",
-      "projectPath": "C:\\Users\\MMkhatshane\\Documents\\SelfServiceKioskAPI\\api\\api.csproj",
-      "packagesPath": "C:\\Users\\MMkhatshane\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\MMkhatshane\\Documents\\SelfServiceKioskAPI\\api\\obj\\",
+      "projectPath": "C:\\Users\\MMabena.SINGULAR\\Desktop\\SelfServiceKiosk\\api\\api.csproj",
+      "packagesPath": "C:\\Users\\MMabena.SINGULAR\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\MMabena.SINGULAR\\Desktop\\SelfServiceKiosk\\api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\MMkhatshane\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\MMabena.SINGULAR\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -8854,7 +8854,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.200"
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net9.0": {
@@ -8938,7 +8938,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.201/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
