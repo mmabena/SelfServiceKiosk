@@ -8,19 +8,15 @@ namespace api.Models
 
 public class Product
 {
-    public int ProductId { get; set; }  
-    public int CategoryId { get; set; }
-        public string ProductName { get; set; }
-        public string ProductDescription { get; set; }
-        
-        public string Available { get; set; }
-     
-        public string ProductImage { get; set; }
+        public int ProductId { get; set; }  
+        public int CategoryId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string ProductDescription { get; set; } = string.Empty;        
+        public string Available { get; set; } = string.Empty;     
+        public string ProductImage { get; set; } = string.Empty;
         public decimal UnitPrice { get; set; }
         public int? Quantity { get; set; }
-        public bool IsActive { get; set; } = true;
-
-        
+        public bool IsActive { get; set; } = true;       
         
         public ProductCategory ProductCategories { get; set; } 
           public ICollection<CartProduct> CartProducts { get; set; } 

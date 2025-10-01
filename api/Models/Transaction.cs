@@ -11,7 +11,7 @@ namespace api.Models
         public int CartId { get; set; }
 
         public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
-        public string OrderType { get; set; }
+        public string OrderType { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
 
         // Navigation
