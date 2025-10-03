@@ -1,0 +1,7 @@
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.csproj.AssemblyReference.cache
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.csproj.CoreCompileInputs.cache
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\MMabena.SINGULAR\Desktop\SelfServiceKiosk\Server\obj\Debug\net8.0\api.sourcelink.json
